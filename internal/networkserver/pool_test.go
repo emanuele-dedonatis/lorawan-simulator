@@ -7,50 +7,50 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestNewManager(t *testing.T) {
-	t.Run("creates manager with empty map", func(t *testing.T) {
-		m := NewManager()
+func TestNewPool(t *testing.T) {
+	t.Run("creates pool with empty map", func(t *testing.T) {
+		p := NewPool()
 
-		assert.NotNil(t, m)
-		assert.NotNil(t, m.ns)
-		assert.Equal(t, 0, len(m.ns))
+		assert.NotNil(t, p)
+		assert.NotNil(t, p.ns)
+		assert.Equal(t, 0, len(p.ns))
 	})
 }
 
-func TestManager_Add(t *testing.T) {
+func TestPool_Add(t *testing.T) {
 	t.Run("adds new network server successfully", func(t *testing.T) {
-		m := NewManager()
+		p := NewPool()
 		name := "test-server"
 
-		ns, err := m.Add(name)
+		ns, err := p.Add(name)
 
 		assert.NoError(t, err)
 		assert.NotNil(t, ns)
 		assert.Equal(t, name, ns.name)
-		assert.Equal(t, 1, len(m.ns))
+		assert.Equal(t, 1, len(p.ns))
 	})
 
 	t.Run("returns error when adding duplicate network server", func(t *testing.T) {
-		m := NewManager()
+		p := NewPool()
 		name := "test-server"
 
-		ns1, err1 := m.Add(name)
+		ns1, err1 := p.Add(name)
 		assert.NoError(t, err1)
 		assert.NotNil(t, ns1)
 
-		ns2, err2 := m.Add(name)
+		ns2, err2 := p.Add(name)
 		assert.Error(t, err2)
 		assert.Nil(t, ns2)
 		assert.Equal(t, "Network Server already exists", err2.Error())
-		assert.Equal(t, 1, len(m.ns))
+		assert.Equal(t, 1, len(p.ns))
 	})
 
 	t.Run("adds multiple different network servers", func(t *testing.T) {
-		m := NewManager()
+		p := NewPool()
 
-		ns1, err1 := m.Add("server-1")
-		ns2, err2 := m.Add("server-2")
-		ns3, err3 := m.Add("server-3")
+		ns1, err1 := p.Add("server-1")
+		ns2, err2 := p.Add("server-2")
+		ns3, err3 := p.Add("server-3")
 
 		assert.NoError(t, err1)
 		assert.NoError(t, err2)
@@ -58,17 +58,17 @@ func TestManager_Add(t *testing.T) {
 		assert.NotNil(t, ns1)
 		assert.NotNil(t, ns2)
 		assert.NotNil(t, ns3)
-		assert.Equal(t, 3, len(m.ns))
+		assert.Equal(t, 3, len(p.ns))
 	})
 }
 
-func TestManager_Get(t *testing.T) {
+func TestPool_Get(t *testing.T) {
 	t.Run("gets existing network server", func(t *testing.T) {
-		m := NewManager()
+		p := NewPool()
 		name := "test-server"
-		m.Add(name)
+		p.Add(name)
 
-		ns, exists := m.Get(name)
+		ns, exists := p.Get(name)
 
 		assert.True(t, exists)
 		assert.NotNil(t, ns)
@@ -76,21 +76,21 @@ func TestManager_Get(t *testing.T) {
 	})
 
 	t.Run("returns false for non-existing network server", func(t *testing.T) {
-		m := NewManager()
+		p := NewPool()
 
-		ns, exists := m.Get("non-existing")
+		ns, exists := p.Get("non-existing")
 
 		assert.False(t, exists)
 		assert.Nil(t, ns)
 	})
 
 	t.Run("gets correct server from multiple servers", func(t *testing.T) {
-		m := NewManager()
-		m.Add("server-1")
-		m.Add("server-2")
-		m.Add("server-3")
+		p := NewPool()
+		p.Add("server-1")
+		p.Add("server-2")
+		p.Add("server-3")
 
-		ns, exists := m.Get("server-2")
+		ns, exists := p.Get("server-2")
 
 		assert.True(t, exists)
 		assert.NotNil(t, ns)
@@ -98,23 +98,23 @@ func TestManager_Get(t *testing.T) {
 	})
 }
 
-func TestManager_List(t *testing.T) {
-	t.Run("returns empty slice for empty manager", func(t *testing.T) {
-		m := NewManager()
+func TestPool_List(t *testing.T) {
+	t.Run("returns empty slice for empty pool", func(t *testing.T) {
+		p := NewPool()
 
-		list := m.List()
+		list := p.List()
 
 		assert.NotNil(t, list)
 		assert.Equal(t, 0, len(list))
 	})
 
 	t.Run("returns all network servers info", func(t *testing.T) {
-		m := NewManager()
-		m.Add("server-1")
-		m.Add("server-2")
-		m.Add("server-3")
+		p := NewPool()
+		p.Add("server-1")
+		p.Add("server-2")
+		p.Add("server-3")
 
-		list := m.List()
+		list := p.List()
 
 		assert.Equal(t, 3, len(list))
 
@@ -132,17 +132,17 @@ func TestManager_List(t *testing.T) {
 	})
 
 	t.Run("list reflects current state after add and remove", func(t *testing.T) {
-		m := NewManager()
-		m.Add("server-1")
-		m.Add("server-2")
-		m.Add("server-3")
+		p := NewPool()
+		p.Add("server-1")
+		p.Add("server-2")
+		p.Add("server-3")
 
-		list1 := m.List()
+		list1 := p.List()
 		assert.Equal(t, 3, len(list1))
 
-		m.Remove("server-2")
+		p.Remove("server-2")
 
-		list2 := m.List()
+		list2 := p.List()
 		assert.Equal(t, 2, len(list2))
 
 		names := make(map[string]bool)
@@ -156,10 +156,10 @@ func TestManager_List(t *testing.T) {
 	})
 
 	t.Run("returns NetworkServerInfo not pointers", func(t *testing.T) {
-		m := NewManager()
-		m.Add("test-server")
+		p := NewPool()
+		p.Add("test-server")
 
-		list := m.List()
+		list := p.List()
 
 		assert.Equal(t, 1, len(list))
 		assert.Equal(t, "test-server", list[0].Name)
@@ -167,51 +167,51 @@ func TestManager_List(t *testing.T) {
 	})
 }
 
-func TestManager_Remove(t *testing.T) {
+func TestPool_Remove(t *testing.T) {
 	t.Run("removes existing network server", func(t *testing.T) {
-		m := NewManager()
+		p := NewPool()
 		name := "test-server"
-		m.Add(name)
+		p.Add(name)
 
-		m.Remove(name)
+		p.Remove(name)
 
-		ns, exists := m.Get(name)
+		ns, exists := p.Get(name)
 		assert.False(t, exists)
 		assert.Nil(t, ns)
-		assert.Equal(t, 0, len(m.ns))
+		assert.Equal(t, 0, len(p.ns))
 	})
 
 	t.Run("removes non-existing network server without error", func(t *testing.T) {
-		m := NewManager()
+		p := NewPool()
 
 		// Should not panic or error
-		m.Remove("non-existing")
+		p.Remove("non-existing")
 
-		assert.Equal(t, 0, len(m.ns))
+		assert.Equal(t, 0, len(p.ns))
 	})
 
 	t.Run("removes one server from multiple servers", func(t *testing.T) {
-		m := NewManager()
-		m.Add("server-1")
-		m.Add("server-2")
-		m.Add("server-3")
+		p := NewPool()
+		p.Add("server-1")
+		p.Add("server-2")
+		p.Add("server-3")
 
-		m.Remove("server-2")
+		p.Remove("server-2")
 
-		_, exists1 := m.Get("server-1")
-		_, exists2 := m.Get("server-2")
-		_, exists3 := m.Get("server-3")
+		_, exists1 := p.Get("server-1")
+		_, exists2 := p.Get("server-2")
+		_, exists3 := p.Get("server-3")
 
 		assert.True(t, exists1)
 		assert.False(t, exists2)
 		assert.True(t, exists3)
-		assert.Equal(t, 2, len(m.ns))
+		assert.Equal(t, 2, len(p.ns))
 	})
 }
 
-func TestManager_Concurrency(t *testing.T) {
+func TestPool_Concurrency(t *testing.T) {
 	t.Run("concurrent adds are safe", func(t *testing.T) {
-		m := NewManager()
+		p := NewPool()
 		var wg sync.WaitGroup
 		numGoroutines := 100
 
@@ -220,24 +220,24 @@ func TestManager_Concurrency(t *testing.T) {
 			go func(id int) {
 				defer wg.Done()
 				name := string(rune('a' + id))
-				m.Add(name)
+				p.Add(name)
 			}(i)
 		}
 
 		wg.Wait()
 
 		// Should have added all unique servers
-		assert.Equal(t, numGoroutines, len(m.ns))
+		assert.Equal(t, numGoroutines, len(p.ns))
 	})
 
 	t.Run("concurrent reads and writes are safe", func(t *testing.T) {
-		m := NewManager()
+		p := NewPool()
 		var wg sync.WaitGroup
 		numOperations := 50
 
 		// Pre-populate with some servers
 		for i := 0; i < 10; i++ {
-			m.Add(string(rune('a' + i)))
+			p.Add(string(rune('a' + i)))
 		}
 
 		// Concurrent reads
@@ -246,7 +246,7 @@ func TestManager_Concurrency(t *testing.T) {
 			go func(id int) {
 				defer wg.Done()
 				name := string(rune('a' + (id % 10)))
-				m.Get(name)
+				p.Get(name)
 			}(i)
 		}
 
@@ -256,24 +256,24 @@ func TestManager_Concurrency(t *testing.T) {
 			go func(id int) {
 				defer wg.Done()
 				name := string(rune('k' + id))
-				m.Add(name)
+				p.Add(name)
 			}(i)
 		}
 
 		wg.Wait()
 
 		// Should not panic and should have all the original + new servers
-		assert.GreaterOrEqual(t, len(m.ns), 10)
+		assert.GreaterOrEqual(t, len(p.ns), 10)
 	})
 
 	t.Run("concurrent removes are safe", func(t *testing.T) {
-		m := NewManager()
+		p := NewPool()
 		var wg sync.WaitGroup
 		numServers := 50
 
 		// Pre-populate
 		for i := 0; i < numServers; i++ {
-			m.Add(string(rune('a' + i)))
+			p.Add(string(rune('a' + i)))
 		}
 
 		// Concurrent removes
@@ -282,13 +282,13 @@ func TestManager_Concurrency(t *testing.T) {
 			go func(id int) {
 				defer wg.Done()
 				name := string(rune('a' + id))
-				m.Remove(name)
+				p.Remove(name)
 			}(i)
 		}
 
 		wg.Wait()
 
 		// All should be removed
-		assert.Equal(t, 0, len(m.ns))
+		assert.Equal(t, 0, len(p.ns))
 	})
 }
