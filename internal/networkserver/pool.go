@@ -48,9 +48,15 @@ func (p *Pool) List() []NetworkServerInfo {
 	return res
 }
 
-func (p *Pool) Remove(name string) {
+func (p *Pool) Remove(name string) error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
+	if _, exists := p.ns[name]; !exists {
+		return errors.New("Network Server not found")
+	}
+
 	delete(p.ns, name)
+
+	return nil
 }
