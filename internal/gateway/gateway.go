@@ -14,9 +14,9 @@ type Gateway struct {
 }
 
 type GatewayInfo struct {
-	EUI          lorawan.EUI64
-	DiscoveryURI string
-	State        State
+	EUI          lorawan.EUI64 `json:"eui"`
+	DiscoveryURI string        `json:"discoveriUri"`
+	State        State         `json:"state"`
 }
 
 func New(EUI lorawan.EUI64, discoveryURI string) *Gateway {

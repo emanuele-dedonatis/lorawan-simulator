@@ -18,9 +18,9 @@ type NetworkServer struct {
 }
 
 type NetworkServerInfo struct {
-	Name         string
-	DeviceCount  int
-	GatewayCount int
+	Name         string `json:"name"`
+	DeviceCount  int    `json:"deviceCount"`
+	GatewayCount int    `json:"gatewayCount"`
 }
 
 func New(name string) *NetworkServer {

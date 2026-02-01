@@ -16,12 +16,17 @@ func NewPool() *Pool {
 	}
 }
 
-func (p *Pool) Get(name string) (*NetworkServer, bool) {
+func (p *Pool) Get(name string) (*NetworkServer, error) {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 
 	ns, exists := p.ns[name]
-	return ns, exists
+
+	if !exists {
+		return nil, errors.New("network server not found")
+	}
+
+	return ns, nil
 }
 
 func (p *Pool) Add(name string) (*NetworkServer, error) {

@@ -68,19 +68,20 @@ func TestPool_Get(t *testing.T) {
 		name := "test-server"
 		p.Add(name)
 
-		ns, exists := p.Get(name)
+		ns, err := p.Get(name)
 
-		assert.True(t, exists)
+		assert.Nil(t, err)
 		assert.NotNil(t, ns)
 		assert.Equal(t, name, ns.name)
 	})
 
-	t.Run("returns false for non-existing network server", func(t *testing.T) {
+	t.Run("returns error for non-existing network server", func(t *testing.T) {
 		p := NewPool()
 
-		ns, exists := p.Get("non-existing")
+		ns, err := p.Get("non-existing")
 
-		assert.False(t, exists)
+		assert.NotNil(t, err)
+		assert.Equal(t, "network server not found", err.Error())
 		assert.Nil(t, ns)
 	})
 
@@ -90,9 +91,9 @@ func TestPool_Get(t *testing.T) {
 		p.Add("server-2")
 		p.Add("server-3")
 
-		ns, exists := p.Get("server-2")
+		ns, err := p.Get("server-2")
 
-		assert.True(t, exists)
+		assert.Nil(t, err)
 		assert.NotNil(t, ns)
 		assert.Equal(t, "server-2", ns.name)
 	})
@@ -166,8 +167,9 @@ func TestPool_Remove(t *testing.T) {
 
 		p.Remove(name)
 
-		ns, exists := p.Get(name)
-		assert.False(t, exists)
+		ns, err := p.Get(name)
+		assert.NotNil(t, err)
+		assert.Equal(t, "network server not found", err.Error())
 		assert.Nil(t, ns)
 		assert.Equal(t, 0, len(p.ns))
 	})
@@ -189,13 +191,14 @@ func TestPool_Remove(t *testing.T) {
 
 		p.Remove("server-2")
 
-		_, exists1 := p.Get("server-1")
-		_, exists2 := p.Get("server-2")
-		_, exists3 := p.Get("server-3")
+		_, err1 := p.Get("server-1")
+		_, err2 := p.Get("server-2")
+		_, err3 := p.Get("server-3")
 
-		assert.True(t, exists1)
-		assert.False(t, exists2)
-		assert.True(t, exists3)
+		assert.Nil(t, err1)
+		assert.NotNil(t, err2)
+		assert.Equal(t, "network server not found", err2.Error())
+		assert.Nil(t, err3)
 		assert.Equal(t, 2, len(p.ns))
 	})
 }
