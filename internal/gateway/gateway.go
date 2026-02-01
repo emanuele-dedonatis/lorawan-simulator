@@ -7,7 +7,7 @@ import (
 )
 
 type Gateway struct {
-	EUI          lorawan.EUI64
+	eui          lorawan.EUI64
 	discoveryURI string
 	state        State
 	mu           sync.RWMutex
@@ -15,13 +15,13 @@ type Gateway struct {
 
 type GatewayInfo struct {
 	EUI          lorawan.EUI64 `json:"eui"`
-	DiscoveryURI string        `json:"discoveriUri"`
+	DiscoveryURI string        `json:"discoveryUri"`
 	State        State         `json:"state"`
 }
 
 func New(EUI lorawan.EUI64, discoveryURI string) *Gateway {
 	return &Gateway{
-		EUI:          EUI,
+		eui:          EUI,
 		discoveryURI: discoveryURI,
 		state:        StateDisconnected,
 	}
@@ -32,7 +32,7 @@ func (g *Gateway) GetInfo() GatewayInfo {
 	defer g.mu.RUnlock()
 
 	return GatewayInfo{
-		EUI:          g.EUI,
+		EUI:          g.eui,
 		DiscoveryURI: g.discoveryURI,
 		State:        g.state,
 	}

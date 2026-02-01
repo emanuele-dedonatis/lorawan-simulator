@@ -42,7 +42,7 @@ func TestNetworkServer_AddGateway(t *testing.T) {
 
 		assert.NoError(t, err)
 		assert.NotNil(t, gw)
-		assert.Equal(t, eui, gw.EUI)
+		assert.Equal(t, eui, gw.GetInfo().EUI)
 
 		// Verify it's in the map
 		info := ns.GetInfo()
@@ -86,20 +86,21 @@ func TestNetworkServer_GetGateway(t *testing.T) {
 		eui := lorawan.EUI64{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}
 		ns.AddGateway(eui, "wss://example.com")
 
-		gw, exists := ns.GetGateway(eui)
+		gw, err := ns.GetGateway(eui)
 
-		assert.True(t, exists)
+		assert.Nil(t, err)
 		assert.NotNil(t, gw)
-		assert.Equal(t, eui, gw.EUI)
+		assert.Equal(t, eui, gw.GetInfo().EUI)
 	})
 
-	t.Run("returns false for non-existing gateway", func(t *testing.T) {
+	t.Run("returns err for non-existing gateway", func(t *testing.T) {
 		ns := New("test-server")
 		eui := lorawan.EUI64{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}
 
-		gw, exists := ns.GetGateway(eui)
+		gw, err := ns.GetGateway(eui)
 
-		assert.False(t, exists)
+		assert.NotNil(t, err)
+		assert.Equal(t, "gateway not found", err.Error())
 		assert.Nil(t, gw)
 	})
 }
@@ -131,7 +132,7 @@ func TestNetworkServer_ListGateways(t *testing.T) {
 		// Verify all EUIs are present
 		euiMap := make(map[lorawan.EUI64]bool)
 		for _, gw := range gateways {
-			euiMap[gw.EUI] = true
+			euiMap[gw.GetInfo().EUI] = true
 		}
 
 		assert.True(t, euiMap[eui1])
@@ -151,8 +152,9 @@ func TestNetworkServer_RemoveGateway(t *testing.T) {
 		assert.NoError(t, err)
 
 		// Verify it's removed
-		_, exists := ns.GetGateway(eui)
-		assert.False(t, exists)
+		_, err2 := ns.GetGateway(eui)
+		assert.NotNil(t, err2)
+		assert.Equal(t, "gateway not found", err2.Error())
 
 		info := ns.GetInfo()
 		assert.Equal(t, 0, info.GatewayCount)
@@ -183,13 +185,14 @@ func TestNetworkServer_RemoveGateway(t *testing.T) {
 		assert.NoError(t, err)
 
 		// Verify eui2 is removed but others remain
-		_, exists1 := ns.GetGateway(eui1)
-		_, exists2 := ns.GetGateway(eui2)
-		_, exists3 := ns.GetGateway(eui3)
+		_, err1 := ns.GetGateway(eui1)
+		_, err2 := ns.GetGateway(eui2)
+		_, err3 := ns.GetGateway(eui3)
 
-		assert.True(t, exists1)
-		assert.False(t, exists2)
-		assert.True(t, exists3)
+		assert.Nil(t, err1)
+		assert.NotNil(t, err2)
+		assert.Equal(t, "gateway not found", err2.Error())
+		assert.Nil(t, err3)
 
 		info := ns.GetInfo()
 		assert.Equal(t, 2, info.GatewayCount)

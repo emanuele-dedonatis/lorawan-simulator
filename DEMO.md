@@ -11,26 +11,50 @@ go run cmd/lorawan-simulator/main.go
 
 The API will be available at `http://localhost:8080`
 
-## Basic Operations
+## Network Server Operations
 
-### 1. Create a Network Server
+### Add a Network Server
 ```bash
 curl -X POST http://localhost:8080/network-servers \
   -H "Content-Type: application/json" \
-  -d '{"name":"my-server"}'
+  -d '{"name":"my-lns"}'
 ```
 
-### 2. List All Network Servers
+### List All Network Servers
 ```bash
 curl http://localhost:8080/network-servers
 ```
 
-### 3. Get Specific Network Server
+### Get Specific Network Server
 ```bash
-curl http://localhost:8080/network-servers/my-server
+curl http://localhost:8080/network-servers/my-lns
 ```
 
-### 4. Delete a Network Server
+### DeleRemovete a Network Server
 ```bash
-curl -X DELETE http://localhost:8080/network-servers/my-server
+curl -X DELETE http://localhost:8080/network-servers/my-lns
+```
+
+## Gateway Operations
+
+### Add a Gateway
+```bash
+curl -X POST http://localhost:8080/network-servers/my-lns/gateways \
+  -H "Content-Type: application/json" \
+  -d '{"eui":"AABBCCDDEEFF0011", "discoveryUri":"wss://localhost:1234"}'
+```
+
+### List Network Server's Gateways
+```bash
+curl http://localhost:8080/network-servers/my-lns/gateways
+```
+
+### Get Specific Network Server's Gateway
+```bash
+curl http://localhost:8080/network-servers/my-lns/gateways/AABBCCDDEEFF0011
+```
+
+### Remove a Network Server
+```bash
+curl -X DELETE http://localhost:8080/network-servers/my-lns/gateways/AABBCCDDEEFF0011
 ```

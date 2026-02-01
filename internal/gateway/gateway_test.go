@@ -16,7 +16,7 @@ func TestNew(t *testing.T) {
 		gw := New(eui, discoveryURI)
 
 		assert.NotNil(t, gw)
-		assert.Equal(t, eui, gw.EUI)
+		assert.Equal(t, eui, gw.eui)
 		assert.Equal(t, discoveryURI, gw.discoveryURI)
 		assert.Equal(t, StateDisconnected, gw.state)
 	})
@@ -31,8 +31,8 @@ func TestNew(t *testing.T) {
 		gw2 := New(eui2, discoveryURI2)
 
 		assert.NotEqual(t, gw1, gw2)
-		assert.Equal(t, eui1, gw1.EUI)
-		assert.Equal(t, eui2, gw2.EUI)
+		assert.Equal(t, eui1, gw1.eui)
+		assert.Equal(t, eui2, gw2.eui)
 		assert.Equal(t, discoveryURI1, gw1.discoveryURI)
 		assert.Equal(t, discoveryURI2, gw2.discoveryURI)
 	})

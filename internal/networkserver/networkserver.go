@@ -56,12 +56,16 @@ func (ns *NetworkServer) AddGateway(EUI lorawan.EUI64, discoveryURI string) (*ga
 	return ns.gateways[EUI], nil
 }
 
-func (ns *NetworkServer) GetGateway(EUI lorawan.EUI64) (*gateway.Gateway, bool) {
+func (ns *NetworkServer) GetGateway(EUI lorawan.EUI64) (*gateway.Gateway, error) {
 	ns.mu.RLock()
 	defer ns.mu.RUnlock()
 
 	gateway, exists := ns.gateways[EUI]
-	return gateway, exists
+	if !exists {
+		return nil, errors.New("gateway not found")
+	}
+
+	return gateway, nil
 }
 
 func (ns *NetworkServer) ListGateways() []*gateway.Gateway {

@@ -20,10 +20,19 @@ func setupTestRouter() (*gin.Engine, *networkserver.Pool) {
 	pool = testPool
 
 	router := gin.Default()
+
+	// Network Servers collection
 	router.GET("/network-servers", getNetworkServers)
-	router.GET("/network-servers/:name", getNetworkServersByName)
 	router.POST("/network-servers", postNetworkServer)
-	router.DELETE("/network-servers/:name", delNetworkServer)
+
+	// All routes with :name parameter share middleware
+	ns := router.Group("/network-servers/:name")
+	ns.Use(networkServerMiddleware())
+	{
+		// Network Server operations
+		ns.GET("", getNetworkServersByName)
+		ns.DELETE("", delNetworkServer)
+	}
 
 	return router, testPool
 }
