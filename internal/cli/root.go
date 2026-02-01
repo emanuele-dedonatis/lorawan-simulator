@@ -18,6 +18,7 @@ func InitRootCmd(p *networkserver.Pool) *cobra.Command {
 	pool = p
 
 	rootCmd.AddCommand(InitNsCmd())
+	rootCmd.AddCommand(InitGwCmd())
 
 	return rootCmd
 }

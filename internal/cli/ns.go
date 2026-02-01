@@ -48,8 +48,9 @@ var nsListCmd = &cobra.Command{
 	Short: "List network servers",
 	Run: func(cmd *cobra.Command, args []string) {
 		for _, ns := range pool.List() {
+			info := ns.GetInfo()
 			fmt.Printf("%s | Devices: %d | Gateways: %d\n",
-				ns.Name, ns.DeviceCount, ns.GatewayCount)
+				info.Name, info.DeviceCount, info.GatewayCount)
 		}
 	},
 }

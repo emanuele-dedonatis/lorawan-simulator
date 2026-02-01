@@ -41,7 +41,7 @@ func TestPool_Add(t *testing.T) {
 		ns2, err2 := p.Add(name)
 		assert.Error(t, err2)
 		assert.Nil(t, ns2)
-		assert.Equal(t, "Network Server already exists", err2.Error())
+		assert.Equal(t, "network server already exists", err2.Error())
 		assert.Equal(t, 1, len(p.ns))
 	})
 
@@ -120,7 +120,8 @@ func TestPool_List(t *testing.T) {
 
 		// Verify all servers are in the list
 		names := make(map[string]bool)
-		for _, info := range list {
+		for _, ns := range list {
+			info := ns.GetInfo()
 			names[info.Name] = true
 			assert.Equal(t, 0, info.DeviceCount)
 			assert.Equal(t, 0, info.GatewayCount)
@@ -146,24 +147,14 @@ func TestPool_List(t *testing.T) {
 		assert.Equal(t, 2, len(list2))
 
 		names := make(map[string]bool)
-		for _, info := range list2 {
+		for _, ns := range list2 {
+			info := ns.GetInfo()
 			names[info.Name] = true
 		}
 
 		assert.True(t, names["server-1"])
 		assert.False(t, names["server-2"])
 		assert.True(t, names["server-3"])
-	})
-
-	t.Run("returns NetworkServerInfo not pointers", func(t *testing.T) {
-		p := NewPool()
-		p.Add("test-server")
-
-		list := p.List()
-
-		assert.Equal(t, 1, len(list))
-		assert.Equal(t, "test-server", list[0].Name)
-		assert.IsType(t, NetworkServerInfo{}, list[0])
 	})
 }
 

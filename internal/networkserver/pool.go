@@ -29,23 +29,22 @@ func (p *Pool) Add(name string) (*NetworkServer, error) {
 	defer p.mu.Unlock()
 
 	if _, exists := p.ns[name]; exists {
-		return nil, errors.New("Network Server already exists")
+		return nil, errors.New("network server already exists")
 	}
 
 	p.ns[name] = New(name)
 	return p.ns[name], nil
 }
 
-func (p *Pool) List() []NetworkServerInfo {
+func (p *Pool) List() []*NetworkServer {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 
-	res := make([]NetworkServerInfo, 0, len(p.ns))
+	servers := make([]*NetworkServer, 0, len(p.ns))
 	for _, ns := range p.ns {
-		res = append(res, ns.GetInfo())
+		servers = append(servers, ns)
 	}
-
-	return res
+	return servers
 }
 
 func (p *Pool) Remove(name string) error {
@@ -53,7 +52,7 @@ func (p *Pool) Remove(name string) error {
 	defer p.mu.Unlock()
 
 	if _, exists := p.ns[name]; !exists {
-		return errors.New("Network Server not found")
+		return errors.New("network server not found")
 	}
 
 	delete(p.ns, name)

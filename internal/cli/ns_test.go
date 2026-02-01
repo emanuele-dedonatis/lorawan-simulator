@@ -27,7 +27,7 @@ func TestNsAddCmd(t *testing.T) {
 		// Verify pool has 1 server
 		servers := testPool.List()
 		assert.Equal(t, 1, len(servers))
-		assert.Equal(t, "test-server", servers[0].Name)
+		assert.Equal(t, "test-server", servers[0].GetInfo().Name)
 	})
 
 	t.Run("returns error when adding duplicate server", func(t *testing.T) {
@@ -159,7 +159,7 @@ func TestIntegration_NsCommands(t *testing.T) {
 		// Verify added
 		servers := testPool.List()
 		assert.Equal(t, 1, len(servers))
-		assert.Equal(t, "test-server", servers[0].Name)
+		assert.Equal(t, "test-server", servers[0].GetInfo().Name)
 
 		// Remove server
 		rootCmd = InitRootCmd(testPool)
