@@ -30,7 +30,7 @@ curl http://localhost:8080/network-servers
 curl http://localhost:8080/network-servers/my-lns
 ```
 
-### DeleRemovete a Network Server
+### Remove a Network Server
 ```bash
 curl -X DELETE http://localhost:8080/network-servers/my-lns
 ```
@@ -54,7 +54,17 @@ curl http://localhost:8080/network-servers/my-lns/gateways
 curl http://localhost:8080/network-servers/my-lns/gateways/AABBCCDDEEFF0011
 ```
 
-### Remove a Network Server
+### Remove a Gateway
 ```bash
 curl -X DELETE http://localhost:8080/network-servers/my-lns/gateways/AABBCCDDEEFF0011
+```
+
+### Connect a Gateway
+```bash
+curl -X POST http://localhost:8080/network-servers/my-lns/gateways/AABBCCDDEEFF0011/connect
+```
+
+### Disconnect a Gateway
+```bash
+curl -X POST http://localhost:8080/network-servers/my-lns/gateways/AABBCCDDEEFF0011/disconnect
 ```

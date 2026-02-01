@@ -45,6 +45,8 @@ func setupGatewayTestRouter() (*gin.Engine, *networkserver.Pool) {
 		{
 			gw.GET("", getGatewayByEUI)
 			gw.DELETE("", delGateway)
+			gw.POST("/connect", connectGateway)
+			gw.POST("/disconnect", disconnectGateway)
 		}
 	}
 
@@ -469,5 +471,209 @@ func TestIntegration_GatewayWorkflow(t *testing.T) {
 		w = httptest.NewRecorder()
 		router.ServeHTTP(w, req)
 		assert.Equal(t, http.StatusNotFound, w.Code)
+	})
+}
+
+func TestConnectGateway(t *testing.T) {
+	t.Run("connects gateway successfully", func(t *testing.T) {
+		router, testPool := setupGatewayTestRouter()
+		ns, _ := testPool.Add("test-server")
+
+		eui := lorawan.EUI64{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}
+		ns.AddGateway(eui, "http://discovery.example.com")
+
+		req, _ := http.NewRequest("POST", "/network-servers/test-server/gateways/0102030405060708/connect", nil)
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusNoContent, w.Code)
+	})
+
+	t.Run("returns 404 when gateway not found", func(t *testing.T) {
+		router, testPool := setupGatewayTestRouter()
+		testPool.Add("test-server")
+
+		req, _ := http.NewRequest("POST", "/network-servers/test-server/gateways/0102030405060708/connect", nil)
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusNotFound, w.Code)
+
+		var response map[string]string
+		err := json.Unmarshal(w.Body.Bytes(), &response)
+		assert.NoError(t, err)
+		assert.Contains(t, response["message"], "not found")
+	})
+
+	t.Run("returns 400 when EUI format is invalid", func(t *testing.T) {
+		router, testPool := setupGatewayTestRouter()
+		testPool.Add("test-server")
+
+		req, _ := http.NewRequest("POST", "/network-servers/test-server/gateways/invalid-eui/connect", nil)
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+
+		var response map[string]string
+		err := json.Unmarshal(w.Body.Bytes(), &response)
+		assert.NoError(t, err)
+		assert.Contains(t, response["message"], "invalid EUI format")
+	})
+
+	t.Run("returns 404 when network server not found", func(t *testing.T) {
+		router, _ := setupGatewayTestRouter()
+
+		req, _ := http.NewRequest("POST", "/network-servers/non-existent/gateways/0102030405060708/connect", nil)
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusNotFound, w.Code)
+	})
+}
+
+func TestDisconnectGateway(t *testing.T) {
+	t.Run("disconnects gateway successfully", func(t *testing.T) {
+		router, testPool := setupGatewayTestRouter()
+		ns, _ := testPool.Add("test-server")
+
+		eui := lorawan.EUI64{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}
+		ns.AddGateway(eui, "http://discovery.example.com")
+
+		// Connect first so we can disconnect
+		req, _ := http.NewRequest("POST", "/network-servers/test-server/gateways/0102030405060708/connect", nil)
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusNoContent, w.Code)
+
+		// Now disconnect
+		req, _ = http.NewRequest("POST", "/network-servers/test-server/gateways/0102030405060708/disconnect", nil)
+		w = httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusNoContent, w.Code)
+	})
+
+	t.Run("returns 400 when already disconnected", func(t *testing.T) {
+		router, testPool := setupGatewayTestRouter()
+		ns, _ := testPool.Add("test-server")
+
+		eui := lorawan.EUI64{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}
+		ns.AddGateway(eui, "http://discovery.example.com")
+
+		// Try to disconnect without connecting first
+		req, _ := http.NewRequest("POST", "/network-servers/test-server/gateways/0102030405060708/disconnect", nil)
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+
+		var response map[string]string
+		err := json.Unmarshal(w.Body.Bytes(), &response)
+		assert.NoError(t, err)
+		assert.Contains(t, response["message"], "already disconnected")
+	})
+
+	t.Run("returns 404 when gateway not found", func(t *testing.T) {
+		router, testPool := setupGatewayTestRouter()
+		testPool.Add("test-server")
+
+		req, _ := http.NewRequest("POST", "/network-servers/test-server/gateways/0102030405060708/disconnect", nil)
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusNotFound, w.Code)
+
+		var response map[string]string
+		err := json.Unmarshal(w.Body.Bytes(), &response)
+		assert.NoError(t, err)
+		assert.Contains(t, response["message"], "not found")
+	})
+
+	t.Run("returns 400 when EUI format is invalid", func(t *testing.T) {
+		router, testPool := setupGatewayTestRouter()
+		testPool.Add("test-server")
+
+		req, _ := http.NewRequest("POST", "/network-servers/test-server/gateways/invalid-eui/disconnect", nil)
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+
+		var response map[string]string
+		err := json.Unmarshal(w.Body.Bytes(), &response)
+		assert.NoError(t, err)
+		assert.Contains(t, response["message"], "invalid EUI format")
+	})
+
+	t.Run("returns 404 when network server not found", func(t *testing.T) {
+		router, _ := setupGatewayTestRouter()
+
+		req, _ := http.NewRequest("POST", "/network-servers/non-existent/gateways/0102030405060708/disconnect", nil)
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusNotFound, w.Code)
+	})
+}
+
+func TestIntegration_GatewayConnectionWorkflow(t *testing.T) {
+	t.Run("complete connect and disconnect workflow", func(t *testing.T) {
+		router, testPool := setupGatewayTestRouter()
+		ns, _ := testPool.Add("test-server")
+
+		eui := lorawan.EUI64{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}
+		ns.AddGateway(eui, "http://discovery.example.com")
+
+		// 1. Check initial state - should be disconnected
+		req, _ := http.NewRequest("GET", "/network-servers/test-server/gateways/0102030405060708", nil)
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusOK, w.Code)
+		var info1 gateway.GatewayInfo
+		json.Unmarshal(w.Body.Bytes(), &info1)
+		assert.Equal(t, gateway.StateDisconnected, info1.DataState)
+
+		// 2. Connect gateway
+		req, _ = http.NewRequest("POST", "/network-servers/test-server/gateways/0102030405060708/connect", nil)
+		w = httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusNoContent, w.Code)
+
+		// 3. Check state after connect - should be connected
+		req, _ = http.NewRequest("GET", "/network-servers/test-server/gateways/0102030405060708", nil)
+		w = httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusOK, w.Code)
+		var info2 gateway.GatewayInfo
+		json.Unmarshal(w.Body.Bytes(), &info2)
+		assert.Equal(t, gateway.StateConnected, info2.DataState)
+
+		// 4. Try to connect again - should get error
+		req, _ = http.NewRequest("POST", "/network-servers/test-server/gateways/0102030405060708/connect", nil)
+		w = httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+
+		// 5. Disconnect gateway
+		req, _ = http.NewRequest("POST", "/network-servers/test-server/gateways/0102030405060708/disconnect", nil)
+		w = httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusNoContent, w.Code)
+
+		// 6. Check state after disconnect - should be disconnected again
+		req, _ = http.NewRequest("GET", "/network-servers/test-server/gateways/0102030405060708", nil)
+		w = httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusOK, w.Code)
+		var info3 gateway.GatewayInfo
+		json.Unmarshal(w.Body.Bytes(), &info3)
+		assert.Equal(t, gateway.StateDisconnected, info3.DataState)
+
+		// 7. Try to disconnect again - should get error
+		req, _ = http.NewRequest("POST", "/network-servers/test-server/gateways/0102030405060708/disconnect", nil)
+		w = httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusBadRequest, w.Code)
 	})
 }

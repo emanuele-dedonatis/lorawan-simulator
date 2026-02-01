@@ -1,6 +1,7 @@
 package api
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/brocaar/lorawan"
@@ -88,6 +89,41 @@ func delGateway(c *gin.Context) {
 
 	if err != nil {
 		c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
+		return
+	}
+
+	c.IndentedJSON(http.StatusNoContent, nil)
+}
+
+func connectGateway(c *gin.Context) {
+	gw := c.MustGet("gateway").(*gateway.Gateway)
+
+	reply := gw.ConnectAsync()
+
+	if err := waitForResult(reply); err != nil {
+		if errors.Is(err, ErrTimeout) {
+			c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
+		} else {
+			c.IndentedJSON(http.StatusBadRequest, gin.H{"message": err.Error()})
+		}
+		return
+	}
+
+	c.IndentedJSON(http.StatusNoContent, nil)
+}
+
+func disconnectGateway(c *gin.Context) {
+	gw := c.MustGet("gateway").(*gateway.Gateway)
+
+	reply := gw.DisconnectAsync()
+
+	if err := waitForResult(reply); err != nil {
+		// Check if it's a timeout error
+		if errors.Is(err, ErrTimeout) {
+			c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
+		} else {
+			c.IndentedJSON(http.StatusBadRequest, gin.H{"message": err.Error()})
+		}
 		return
 	}
 

@@ -18,7 +18,9 @@ func TestNew(t *testing.T) {
 		assert.NotNil(t, gw)
 		assert.Equal(t, eui, gw.eui)
 		assert.Equal(t, discoveryURI, gw.discoveryURI)
-		assert.Equal(t, StateDisconnected, gw.state)
+		assert.Equal(t, StateDisconnected, gw.discoveryState)
+		assert.Equal(t, StateDisconnected, gw.dataState)
+		assert.Equal(t, "", gw.dataURI)
 	})
 
 	t.Run("creates multiple independent gateways", func(t *testing.T) {
@@ -43,7 +45,8 @@ func TestNew(t *testing.T) {
 
 		gw := New(eui, discoveryURI)
 
-		assert.Equal(t, StateDisconnected, gw.state)
+		assert.Equal(t, StateDisconnected, gw.discoveryState)
+		assert.Equal(t, StateDisconnected, gw.dataState)
 	})
 }
 
@@ -57,7 +60,9 @@ func TestGateway_GetInfo(t *testing.T) {
 
 		assert.Equal(t, eui, info.EUI)
 		assert.Equal(t, discoveryURI, info.DiscoveryURI)
-		assert.Equal(t, StateDisconnected, info.State)
+		assert.Equal(t, StateDisconnected, info.DiscoveryState)
+		assert.Equal(t, StateDisconnected, info.DataState)
+		assert.Equal(t, "", info.DataURI)
 	})
 
 	t.Run("returns updated state after connect", func(t *testing.T) {
@@ -65,10 +70,12 @@ func TestGateway_GetInfo(t *testing.T) {
 		discoveryURI := "wss://gateway.example.com:6887"
 		gw := New(eui, discoveryURI)
 
-		gw.Connect()
-		info := gw.GetInfo()
+		reply := gw.ConnectAsync()
+		err := <-reply
+		assert.NoError(t, err)
 
-		assert.Equal(t, StateDataConnected, info.State)
+		info := gw.GetInfo()
+		assert.Equal(t, StateConnected, info.DataState)
 	})
 
 	t.Run("is thread-safe for concurrent reads", func(t *testing.T) {
@@ -96,23 +103,33 @@ func TestGateway_Connect(t *testing.T) {
 		discoveryURI := "wss://gateway.example.com:6887"
 		gw := New(eui, discoveryURI)
 
-		assert.Equal(t, StateDisconnected, gw.state)
+		info := gw.GetInfo()
+		assert.Equal(t, StateDisconnected, info.DataState)
 
-		gw.Connect()
+		reply := gw.ConnectAsync()
+		err := <-reply
+		assert.NoError(t, err)
 
-		assert.Equal(t, StateDataConnected, gw.state)
+		info = gw.GetInfo()
+		assert.Equal(t, StateConnected, info.DataState)
 	})
 
-	t.Run("can be called multiple times", func(t *testing.T) {
+	t.Run("returns error when already connected", func(t *testing.T) {
 		eui := lorawan.EUI64{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}
 		discoveryURI := "wss://gateway.example.com:6887"
 		gw := New(eui, discoveryURI)
 
-		gw.Connect()
-		assert.Equal(t, StateDataConnected, gw.state)
+		reply := gw.ConnectAsync()
+		err := <-reply
+		assert.NoError(t, err)
 
-		gw.Connect()
-		assert.Equal(t, StateDataConnected, gw.state)
+		info := gw.GetInfo()
+		assert.Equal(t, StateConnected, info.DataState)
+
+		reply = gw.ConnectAsync()
+		err = <-reply
+		assert.Error(t, err)
+		assert.Equal(t, "already connected", err.Error())
 	})
 
 	t.Run("is thread-safe", func(t *testing.T) {
@@ -121,16 +138,28 @@ func TestGateway_Connect(t *testing.T) {
 		gw := New(eui, discoveryURI)
 
 		var wg sync.WaitGroup
+		successCount := 0
+		var mu sync.Mutex
+
 		for i := 0; i < 100; i++ {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				gw.Connect()
+				reply := gw.ConnectAsync()
+				err := <-reply
+				if err == nil {
+					mu.Lock()
+					successCount++
+					mu.Unlock()
+				}
 			}()
 		}
 		wg.Wait()
 
-		assert.Equal(t, StateDataConnected, gw.state)
+		// Only one should succeed
+		assert.Equal(t, 1, successCount)
+		info := gw.GetInfo()
+		assert.Equal(t, StateConnected, info.DataState)
 	})
 }
 
@@ -140,41 +169,68 @@ func TestGateway_Disconnect(t *testing.T) {
 		discoveryURI := "wss://gateway.example.com:6887"
 		gw := New(eui, discoveryURI)
 
-		gw.Connect()
-		assert.Equal(t, StateDataConnected, gw.state)
+		reply := gw.ConnectAsync()
+		err := <-reply
+		assert.NoError(t, err)
 
-		gw.Disconnect()
-		assert.Equal(t, StateDisconnected, gw.state)
+		info := gw.GetInfo()
+		assert.Equal(t, StateConnected, info.DataState)
+
+		reply = gw.DisconnectAsync()
+		err = <-reply
+		assert.NoError(t, err)
+
+		info = gw.GetInfo()
+		assert.Equal(t, StateDisconnected, info.DataState)
+		assert.Equal(t, StateDisconnected, info.DiscoveryState)
 	})
 
-	t.Run("can be called when already disconnected", func(t *testing.T) {
+	t.Run("returns error when already disconnected", func(t *testing.T) {
 		eui := lorawan.EUI64{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}
 		discoveryURI := "wss://gateway.example.com:6887"
 		gw := New(eui, discoveryURI)
 
-		assert.Equal(t, StateDisconnected, gw.state)
+		info := gw.GetInfo()
+		assert.Equal(t, StateDisconnected, info.DataState)
 
-		gw.Disconnect()
-		assert.Equal(t, StateDisconnected, gw.state)
+		reply := gw.DisconnectAsync()
+		err := <-reply
+		assert.Error(t, err)
+		assert.Equal(t, "already disconnected", err.Error())
 	})
 
 	t.Run("is thread-safe", func(t *testing.T) {
 		eui := lorawan.EUI64{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}
 		discoveryURI := "wss://gateway.example.com:6887"
 		gw := New(eui, discoveryURI)
-		gw.Connect()
+
+		reply := gw.ConnectAsync()
+		err := <-reply
+		assert.NoError(t, err)
 
 		var wg sync.WaitGroup
+		successCount := 0
+		var mu sync.Mutex
+
 		for i := 0; i < 100; i++ {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				gw.Disconnect()
+				reply := gw.DisconnectAsync()
+				err := <-reply
+				if err == nil {
+					mu.Lock()
+					successCount++
+					mu.Unlock()
+				}
 			}()
 		}
 		wg.Wait()
 
-		assert.Equal(t, StateDisconnected, gw.state)
+		// Only one should succeed
+		assert.Equal(t, 1, successCount)
+		info := gw.GetInfo()
+		assert.Equal(t, StateDisconnected, info.DataState)
 	})
 }
 
@@ -185,19 +241,32 @@ func TestGateway_StateTransitions(t *testing.T) {
 		gw := New(eui, discoveryURI)
 
 		// Initial state
-		assert.Equal(t, StateDisconnected, gw.state)
+		info := gw.GetInfo()
+		assert.Equal(t, StateDisconnected, info.DataState)
 
 		// Connect
-		gw.Connect()
-		assert.Equal(t, StateDataConnected, gw.state)
+		reply := gw.ConnectAsync()
+		err := <-reply
+		assert.NoError(t, err)
+
+		info = gw.GetInfo()
+		assert.Equal(t, StateConnected, info.DataState)
 
 		// Disconnect
-		gw.Disconnect()
-		assert.Equal(t, StateDisconnected, gw.state)
+		reply = gw.DisconnectAsync()
+		err = <-reply
+		assert.NoError(t, err)
+
+		info = gw.GetInfo()
+		assert.Equal(t, StateDisconnected, info.DataState)
 
 		// Reconnect
-		gw.Connect()
-		assert.Equal(t, StateDataConnected, gw.state)
+		reply = gw.ConnectAsync()
+		err = <-reply
+		assert.NoError(t, err)
+
+		info = gw.GetInfo()
+		assert.Equal(t, StateConnected, info.DataState)
 	})
 
 	t.Run("concurrent connect and disconnect", func(t *testing.T) {
@@ -212,7 +281,8 @@ func TestGateway_StateTransitions(t *testing.T) {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				gw.Connect()
+				reply := gw.ConnectAsync()
+				<-reply // ignore errors
 			}()
 		}
 
@@ -221,7 +291,8 @@ func TestGateway_StateTransitions(t *testing.T) {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				gw.Disconnect()
+				reply := gw.DisconnectAsync()
+				<-reply // ignore errors
 			}()
 		}
 
@@ -229,7 +300,7 @@ func TestGateway_StateTransitions(t *testing.T) {
 
 		// Final state should be either connected or disconnected (no corruption)
 		info := gw.GetInfo()
-		assert.True(t, info.State == StateDataConnected || info.State == StateDisconnected)
+		assert.True(t, info.DataState == StateConnected || info.DataState == StateDisconnected)
 	})
 }
 
@@ -257,7 +328,8 @@ func TestGateway_ConcurrentOperations(t *testing.T) {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				gw.Connect()
+				reply := gw.ConnectAsync()
+				<-reply // ignore errors
 			}()
 		}
 
@@ -266,7 +338,8 @@ func TestGateway_ConcurrentOperations(t *testing.T) {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				gw.Disconnect()
+				reply := gw.DisconnectAsync()
+				<-reply // ignore errors
 			}()
 		}
 
