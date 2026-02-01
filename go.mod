@@ -5,6 +5,7 @@ go 1.25.6
 require (
 	github.com/brocaar/lorawan v0.0.0-20240507141140-a18a1037da07
 	github.com/gin-gonic/gin v1.11.0
+	github.com/gorilla/websocket v1.5.3
 	github.com/stretchr/testify v1.11.1
 )
 

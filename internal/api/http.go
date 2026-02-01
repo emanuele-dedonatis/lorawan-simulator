@@ -54,7 +54,7 @@ func Init(p *networkserver.Pool) {
 		}
 	}
 
-	router.Run("localhost:8080")
+	router.Run("localhost:2208")
 }
 
 var ErrTimeout = errors.New("operation timed out")

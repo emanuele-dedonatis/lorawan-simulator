@@ -9,62 +9,62 @@ Start the simulator server:
 go run cmd/lorawan-simulator/main.go
 ```
 
-The API will be available at `http://localhost:8080`
+The API will be available at `http://localhost:2208`
 
 ## Network Server Operations
 
 ### Add a Network Server
 ```bash
-curl -X POST http://localhost:8080/network-servers \
+curl -X POST http://localhost:2208/network-servers \
   -H "Content-Type: application/json" \
-  -d '{"name":"my-lns"}'
+  -d '{"name":"localhost"}'
 ```
 
 ### List All Network Servers
 ```bash
-curl http://localhost:8080/network-servers
+curl http://localhost:2208/network-servers
 ```
 
 ### Get Specific Network Server
 ```bash
-curl http://localhost:8080/network-servers/my-lns
+curl http://localhost:2208/network-servers/localhost
 ```
 
 ### Remove a Network Server
 ```bash
-curl -X DELETE http://localhost:8080/network-servers/my-lns
+curl -X DELETE http://localhost:2208/network-servers/localhost
 ```
 
 ## Gateway Operations
 
 ### Add a Gateway
 ```bash
-curl -X POST http://localhost:8080/network-servers/my-lns/gateways \
+curl -X POST http://localhost:2208/network-servers/localhost/gateways \
   -H "Content-Type: application/json" \
-  -d '{"eui":"AABBCCDDEEFF0011", "discoveryUri":"wss://localhost:1234"}'
+  -d '{"eui":"AABBCCDDEEFF0011", "discoveryUri":"ws://localhost:3001"}'
 ```
 
 ### List Network Server's Gateways
 ```bash
-curl http://localhost:8080/network-servers/my-lns/gateways
+curl http://localhost:2208/network-servers/localhost/gateways
 ```
 
 ### Get Specific Network Server's Gateway
 ```bash
-curl http://localhost:8080/network-servers/my-lns/gateways/AABBCCDDEEFF0011
+curl http://localhost:2208/network-servers/localhost/gateways/AABBCCDDEEFF0011
 ```
 
 ### Remove a Gateway
 ```bash
-curl -X DELETE http://localhost:8080/network-servers/my-lns/gateways/AABBCCDDEEFF0011
+curl -X DELETE http://localhost:2208/network-servers/localhost/gateways/AABBCCDDEEFF0011
 ```
 
 ### Connect a Gateway
 ```bash
-curl -X POST http://localhost:8080/network-servers/my-lns/gateways/AABBCCDDEEFF0011/connect
+curl -X POST http://localhost:2208/network-servers/localhost/gateways/AABBCCDDEEFF0011/connect
 ```
 
 ### Disconnect a Gateway
 ```bash
-curl -X POST http://localhost:8080/network-servers/my-lns/gateways/AABBCCDDEEFF0011/disconnect
+curl -X POST http://localhost:2208/network-servers/localhost/gateways/AABBCCDDEEFF0011/disconnect
 ```
