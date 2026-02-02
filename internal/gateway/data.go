@@ -2,6 +2,7 @@ package gateway
 
 import (
 	"encoding/binary"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -60,6 +61,8 @@ func (g *Gateway) lnsDataReadLoop() {
 			return
 		}
 		log.Printf("[%s] data read: %s", g.eui, msg)
+
+		go g.parseIncomingMessage(string(msg))
 	}
 }
 
@@ -124,6 +127,42 @@ func (g *Gateway) Forward(frame lorawan.PHYPayload) error {
 	default:
 		return errors.New("unsupported uplink message type")
 	}
+}
+
+func (g *Gateway) parseIncomingMessage(msg string) {
+	// Parse JSON to extract msgtype
+	var baseMsg struct {
+		MsgType string `json:"msgtype"`
+	}
+
+	if err := json.Unmarshal([]byte(msg), &baseMsg); err != nil {
+		log.Printf("[%s] failed to parse message: %v", g.eui, err)
+		return
+	}
+
+	// Switch based on msgtype
+	switch baseMsg.MsgType {
+	case "dnmsg":
+		g.handleDownlinkMessage(msg)
+	default:
+		log.Printf("[%s] unknown msgtype: %s", g.eui, baseMsg.MsgType)
+	}
+}
+
+func (g *Gateway) handleDownlinkMessage(msg string) {
+	var dnmsg struct {
+		DevEui string `json:"DevEui"`
+		Pdu    string `json:"pdu"`
+	}
+
+	if err := json.Unmarshal([]byte(msg), &dnmsg); err != nil {
+		log.Printf("[%s] failed to parse message: %v", g.eui, err)
+		return
+	}
+
+	log.Printf("[%s] downlink message for DevEui %s", g.eui, dnmsg.DevEui)
+
+	// TODO: dispatch to corresponding devices
 }
 
 func (g *Gateway) lnsDataDisconnect() error {
