@@ -16,6 +16,7 @@ type Gateway struct {
 	dataState      State
 	dataWs         *websocket.Conn
 	dataDone       chan struct{}
+	dataSendCh     chan string
 	mu             sync.RWMutex
 }
 
@@ -52,23 +53,29 @@ func (g *Gateway) GetInfo() GatewayInfo {
 
 func (g *Gateway) Connect() error {
 	g.mu.RLock()
-
 	if g.dataState == StateConnected {
+		// A gateway is successfully connected if connected to LNS Data
 		g.mu.RUnlock()
 		return errors.New("already connected")
 	} else if g.discoveryState != StateDisconnected || g.dataState != StateDisconnected {
+		// Proceed only if disconnected from both LNS Data and LNS Discovery
 		g.mu.RUnlock()
 		return errors.New("already connecting")
 	}
 	g.mu.RUnlock()
 
-	uri, err := g.lnsDiscovery()
+	uri, discoveryErr := g.lnsDiscovery()
+	if discoveryErr != nil {
+		return discoveryErr
+	}
 
 	g.mu.Lock()
 	g.dataURI = uri
 	g.mu.Unlock()
 
-	return err
+	dataErr := g.lnsDataConnect()
+
+	return dataErr
 }
 
 func (g *Gateway) DisconnectAsync() <-chan error {

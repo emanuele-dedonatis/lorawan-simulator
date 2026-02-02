@@ -19,6 +19,7 @@ type discoveryResponse struct {
 }
 
 func (g *Gateway) lnsDiscovery() (string, error) {
+	// Connecting
 	g.mu.Lock()
 	g.discoveryState = StateConnecting
 	g.mu.Unlock()
@@ -26,6 +27,7 @@ func (g *Gateway) lnsDiscovery() (string, error) {
 	conn, _, connErr := websocket.DefaultDialer.Dial(g.discoveryURI+"/router-info", nil)
 
 	if connErr != nil {
+		// Connection error
 		log.Printf("[%s] discovery connection error: %v", g.eui, connErr)
 		g.mu.Lock()
 		g.discoveryState = StateDisconnected
@@ -34,6 +36,7 @@ func (g *Gateway) lnsDiscovery() (string, error) {
 		return "", connErr
 	}
 
+	// Connected
 	log.Printf("[%s] discovery connected", g.eui)
 	g.mu.Lock()
 	g.discoveryState = StateConnected
