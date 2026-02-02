@@ -98,14 +98,10 @@ func delGateway(c *gin.Context) {
 func connectGateway(c *gin.Context) {
 	gw := c.MustGet("gateway").(*gateway.Gateway)
 
-	reply := gw.ConnectAsync()
+	err := gw.Connect()
 
-	if err := waitForResult(reply); err != nil {
-		if errors.Is(err, ErrTimeout) {
-			c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
-		} else {
-			c.IndentedJSON(http.StatusBadRequest, gin.H{"message": err.Error()})
-		}
+	if err != nil {
+		c.IndentedJSON(http.StatusBadRequest, gin.H{"message": err.Error()})
 		return
 	}
 

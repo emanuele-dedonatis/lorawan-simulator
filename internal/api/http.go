@@ -1,7 +1,9 @@
 package api
 
 import (
+	"context"
 	"errors"
+	"net/http"
 	"time"
 
 	"github.com/emanuele-dedonatis/lorawan-simulator/internal/networkserver"
@@ -15,6 +17,9 @@ var pool *networkserver.Pool
 func Init(p *networkserver.Pool) {
 	pool = p
 	router := gin.Default()
+
+	// Add timeout middleware to all routes
+	router.Use(timeoutMiddleware(apiTimeout))
 
 	// GET /network-servers
 	router.GET("/network-servers", getNetworkServers)
@@ -58,6 +63,38 @@ func Init(p *networkserver.Pool) {
 }
 
 var ErrTimeout = errors.New("operation timed out")
+
+// timeoutMiddleware adds a timeout to all HTTP requests
+func timeoutMiddleware(timeout time.Duration) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// Create context with timeout
+		ctx, cancel := context.WithTimeout(c.Request.Context(), timeout)
+		defer cancel()
+
+		// Replace request context with timeout context
+		c.Request = c.Request.WithContext(ctx)
+
+		// Channel to signal when handler completes
+		finished := make(chan struct{})
+
+		go func() {
+			c.Next()
+			close(finished)
+		}()
+
+		select {
+		case <-finished:
+			// Handler completed successfully
+			return
+		case <-ctx.Done():
+			// Timeout occurred
+			c.AbortWithStatusJSON(http.StatusGatewayTimeout, gin.H{
+				"message": "request timeout",
+			})
+			return
+		}
+	}
+}
 
 func waitForResult(reply <-chan error) error {
 	timer := time.NewTimer(apiTimeout)

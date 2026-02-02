@@ -68,15 +68,15 @@ func TestGateway_GetInfo(t *testing.T) {
 	t.Run("returns updated state after connect", func(t *testing.T) {
 		t.Skip("Skipping test that requires real WebSocket server")
 		eui := lorawan.EUI64{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}
-		discoveryURI := "wss://gateway.example.com:6887"
+		discoveryURI := "ws://localhost:3001"
 		gw := New(eui, discoveryURI)
 
-		reply := gw.ConnectAsync()
-		err := <-reply
+		err := gw.Connect()
 		assert.NoError(t, err)
 
 		info := gw.GetInfo()
-		assert.Equal(t, StateConnected, info.DiscoveryState)
+		assert.Equal(t, StateDisconnected, info.DiscoveryState) // Discovery closes after getting data URI
+		assert.NotEmpty(t, info.DataURI)                        // Should have received data URI
 	})
 
 	t.Run("is thread-safe for concurrent reads", func(t *testing.T) {
@@ -102,46 +102,44 @@ func TestGateway_Connect(t *testing.T) {
 	t.Run("changes state to connected", func(t *testing.T) {
 		t.Skip("Skipping test that requires real WebSocket server")
 		eui := lorawan.EUI64{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}
-		discoveryURI := "wss://gateway.example.com:6887"
+		discoveryURI := "ws://localhost:3001"
 		gw := New(eui, discoveryURI)
 
 		info := gw.GetInfo()
 		assert.Equal(t, StateDisconnected, info.DiscoveryState)
 
-		reply := gw.ConnectAsync()
-		err := <-reply
+		err := gw.Connect()
 		assert.NoError(t, err)
 
 		info = gw.GetInfo()
-		assert.Equal(t, StateConnected, info.DiscoveryState)
+		assert.NotEmpty(t, info.DataURI) // Should have data URI
 	})
 
 	t.Run("returns error when already connected", func(t *testing.T) {
 		t.Skip("Skipping test that requires real WebSocket server")
 		eui := lorawan.EUI64{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}
-		discoveryURI := "wss://gateway.example.com:6887"
+		discoveryURI := "ws://localhost:3001"
 		gw := New(eui, discoveryURI)
 
-		reply := gw.ConnectAsync()
-		err := <-reply
+		err := gw.Connect()
 		assert.NoError(t, err)
 
 		info := gw.GetInfo()
-		assert.Equal(t, StateConnected, info.DiscoveryState)
+		assert.NotEmpty(t, info.DataURI)
 
-		reply = gw.ConnectAsync()
-		err = <-reply
+		err = gw.Connect()
 		assert.Error(t, err)
-		assert.Equal(t, "already connected", err.Error())
+		assert.Contains(t, err.Error(), "already connect")
 	})
 
 	t.Run("is thread-safe", func(t *testing.T) {
 		t.Skip("Skipping test that requires real WebSocket server")
 		eui := lorawan.EUI64{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}
-		discoveryURI := "wss://gateway.example.com:6887"
+		discoveryURI := "ws://localhost:3001"
 		gw := New(eui, discoveryURI)
 
 		var wg sync.WaitGroup
+		errorCount := 0
 		successCount := 0
 		var mu sync.Mutex
 
@@ -149,21 +147,21 @@ func TestGateway_Connect(t *testing.T) {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				reply := gw.ConnectAsync()
-				err := <-reply
+				err := gw.Connect()
+				mu.Lock()
 				if err == nil {
-					mu.Lock()
 					successCount++
-					mu.Unlock()
+				} else {
+					errorCount++
 				}
+				mu.Unlock()
 			}()
 		}
 		wg.Wait()
 
-		// Only one should succeed
+		// Only one should succeed, rest should get "already connecting" or "already connected" errors
 		assert.Equal(t, 1, successCount)
-		info := gw.GetInfo()
-		assert.Equal(t, StateConnected, info.DiscoveryState)
+		assert.Equal(t, 99, errorCount)
 	})
 }
 
@@ -171,17 +169,16 @@ func TestGateway_Disconnect(t *testing.T) {
 	t.Run("changes state to disconnected", func(t *testing.T) {
 		t.Skip("Skipping test that requires real WebSocket server")
 		eui := lorawan.EUI64{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}
-		discoveryURI := "wss://gateway.example.com:6887"
+		discoveryURI := "ws://localhost:3001"
 		gw := New(eui, discoveryURI)
 
-		reply := gw.ConnectAsync()
-		err := <-reply
+		err := gw.Connect()
 		assert.NoError(t, err)
 
 		info := gw.GetInfo()
-		assert.Equal(t, StateConnected, info.DiscoveryState)
+		assert.NotEmpty(t, info.DataURI)
 
-		reply = gw.DisconnectAsync()
+		reply := gw.DisconnectAsync()
 		err = <-reply
 		assert.NoError(t, err)
 
@@ -207,11 +204,10 @@ func TestGateway_Disconnect(t *testing.T) {
 	t.Run("is thread-safe", func(t *testing.T) {
 		t.Skip("Skipping test that requires real WebSocket server")
 		eui := lorawan.EUI64{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}
-		discoveryURI := "wss://gateway.example.com:6887"
+		discoveryURI := "ws://localhost:3001"
 		gw := New(eui, discoveryURI)
 
-		reply := gw.ConnectAsync()
-		err := <-reply
+		err := gw.Connect()
 		assert.NoError(t, err)
 
 		var wg sync.WaitGroup
@@ -244,7 +240,7 @@ func TestGateway_StateTransitions(t *testing.T) {
 	t.Run("connect and disconnect cycle", func(t *testing.T) {
 		t.Skip("Skipping test that requires real WebSocket server")
 		eui := lorawan.EUI64{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}
-		discoveryURI := "wss://gateway.example.com:6887"
+		discoveryURI := "ws://localhost:3001"
 		gw := New(eui, discoveryURI)
 
 		// Initial state
@@ -252,15 +248,14 @@ func TestGateway_StateTransitions(t *testing.T) {
 		assert.Equal(t, StateDisconnected, info.DiscoveryState)
 
 		// Connect
-		reply := gw.ConnectAsync()
-		err := <-reply
+		err := gw.Connect()
 		assert.NoError(t, err)
 
 		info = gw.GetInfo()
-		assert.Equal(t, StateConnected, info.DiscoveryState)
+		assert.NotEmpty(t, info.DataURI)
 
 		// Disconnect
-		reply = gw.DisconnectAsync()
+		reply := gw.DisconnectAsync()
 		err = <-reply
 		assert.NoError(t, err)
 
@@ -268,18 +263,17 @@ func TestGateway_StateTransitions(t *testing.T) {
 		assert.Equal(t, StateDisconnected, info.DiscoveryState)
 
 		// Reconnect
-		reply = gw.ConnectAsync()
-		err = <-reply
+		err = gw.Connect()
 		assert.NoError(t, err)
 
 		info = gw.GetInfo()
-		assert.Equal(t, StateConnected, info.DiscoveryState)
+		assert.NotEmpty(t, info.DataURI)
 	})
 
 	t.Run("concurrent connect and disconnect", func(t *testing.T) {
 		t.Skip("Skipping test that requires real WebSocket server")
 		eui := lorawan.EUI64{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}
-		discoveryURI := "wss://gateway.example.com:6887"
+		discoveryURI := "ws://localhost:3001"
 		gw := New(eui, discoveryURI)
 
 		var wg sync.WaitGroup
@@ -289,8 +283,7 @@ func TestGateway_StateTransitions(t *testing.T) {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				reply := gw.ConnectAsync()
-				<-reply // ignore errors
+				gw.Connect() // ignore errors
 			}()
 		}
 
@@ -308,7 +301,7 @@ func TestGateway_StateTransitions(t *testing.T) {
 
 		// Final state should be either connected or disconnected (no corruption)
 		info := gw.GetInfo()
-		assert.True(t, info.DiscoveryState == StateConnected || info.DiscoveryState == StateDisconnected)
+		assert.True(t, info.DiscoveryState == StateDisconnected) // Discovery always disconnected after getting data URI
 	})
 }
 
@@ -316,7 +309,7 @@ func TestGateway_ConcurrentOperations(t *testing.T) {
 	t.Run("concurrent GetInfo, Connect, and Disconnect", func(t *testing.T) {
 		t.Skip("Skipping test that requires real WebSocket server")
 		eui := lorawan.EUI64{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}
-		discoveryURI := "wss://gateway.example.com:6887"
+		discoveryURI := "ws://localhost:3001"
 		gw := New(eui, discoveryURI)
 
 		var wg sync.WaitGroup
@@ -337,8 +330,7 @@ func TestGateway_ConcurrentOperations(t *testing.T) {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				reply := gw.ConnectAsync()
-				<-reply // ignore errors
+				gw.Connect() // ignore errors
 			}()
 		}
 
