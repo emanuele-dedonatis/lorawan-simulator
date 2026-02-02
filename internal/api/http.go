@@ -78,6 +78,9 @@ func Init(p *networkserver.Pool) {
 
 			// DELETE /network-servers/:name/devices/:eui
 			dev.DELETE("", delDevice)
+
+			// POST /network-servers/:name/devices/:eui/join
+			dev.POST("/join", sendDeviceJoinRequest)
 		}
 	}
 

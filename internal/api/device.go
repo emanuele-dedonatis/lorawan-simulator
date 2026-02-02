@@ -45,7 +45,10 @@ func postDevice(c *gin.Context) {
 	ns := c.MustGet("networkServer").(*networkserver.NetworkServer)
 
 	var json struct {
-		DevEui string `json:"deveui" binding:"required"`
+		DevEui   string `json:"deveui" binding:"required"`
+		JoinEUI  string `json:"joineui" binding:"required"`
+		AppKey   string `json:"appkey" binding:"required"`
+		DevNonce uint16 `json:"devnonce"`
 	}
 
 	if err := c.Bind(&json); err != nil {
@@ -53,14 +56,28 @@ func postDevice(c *gin.Context) {
 		return
 	}
 
-	// Parse string to EUI64
-	var eui lorawan.EUI64
-	if err := eui.UnmarshalText([]byte(json.DevEui)); err != nil {
-		c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "invalid EUI format"})
+	// Parse DevEui to EUI64
+	var deveui lorawan.EUI64
+	if err := deveui.UnmarshalText([]byte(json.DevEui)); err != nil {
+		c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "invalid DevEui format"})
 		return
 	}
 
-	dev, err := ns.AddDevice(eui)
+	// Parse JoinEUI to EUI64
+	var joineui lorawan.EUI64
+	if err := joineui.UnmarshalText([]byte(json.JoinEUI)); err != nil {
+		c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "invalid JoinEUI format"})
+		return
+	}
+
+	// Parse AppKey to AES128Key
+	var appkey lorawan.AES128Key
+	if err := appkey.UnmarshalText([]byte(json.AppKey)); err != nil {
+		c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "invalid AppKey format"})
+		return
+	}
+
+	dev, err := ns.AddDevice(deveui, joineui, appkey, lorawan.DevNonce(json.DevNonce))
 	if err != nil {
 		c.IndentedJSON(http.StatusConflict, gin.H{"message": err.Error()})
 		return
@@ -82,6 +99,20 @@ func delDevice(c *gin.Context) {
 
 	if err != nil {
 		c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
+		return
+	}
+
+	c.IndentedJSON(http.StatusNoContent, nil)
+}
+
+func sendDeviceJoinRequest(c *gin.Context) {
+	ns := c.MustGet("networkServer").(*networkserver.NetworkServer)
+	dev := c.MustGet("device").(*device.Device)
+
+	err := ns.SendJoinRequest(dev.GetInfo().DevEUI)
+
+	if err != nil {
+		c.IndentedJSON(http.StatusBadRequest, gin.H{"message": err.Error()})
 		return
 	}
 

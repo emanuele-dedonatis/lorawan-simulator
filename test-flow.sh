@@ -154,7 +154,7 @@ echo ""
 echo -e "${YELLOW}Step 5: Adding Device '0011223344556677'...${NC}"
 response=$(curl -s -w "\n%{http_code}" -X POST "$BASE_URL/network-servers/localhost/devices" \
   -H "Content-Type: application/json" \
-  -d '{"deveui":"0011223344556677"}')
+  -d '{"deveui":"0011223344556677","joineui":"0011223344556677","appkey":"00112233445566770011223344556677","devnonce":0}')
 
 http_code=$(echo "$response" | tail -n1)
 body=$(echo "$response" | sed '$d')
@@ -168,6 +168,34 @@ echo ""
 
 # Step 6: Get Device
 echo -e "${YELLOW}Step 6: Get Device '0011223344556677'...${NC}"
+response=$(curl -s -w "\n%{http_code}" -X GET "$BASE_URL/network-servers/localhost/devices/0011223344556677")
+
+http_code=$(echo "$response" | tail -n1)
+body=$(echo "$response" | sed '$d')
+
+echo "Response: $body"
+check_status "$http_code" "Get Device"
+if [ $? -ne 0 ]; then
+    exit 1
+fi
+echo ""
+
+# Step 7: Send Device Join Request
+echo -e "${YELLOW}Step 7: Send Device '0011223344556677' Join Request...${NC}"
+response=$(curl -s -w "\n%{http_code}" -X POST "$BASE_URL/network-servers/localhost/devices/0011223344556677/join")
+
+http_code=$(echo "$response" | tail -n1)
+body=$(echo "$response" | sed '$d')
+
+echo "Response: $body"
+check_status "$http_code" "Send Device Join Request"
+if [ $? -ne 0 ]; then
+    exit 1
+fi
+echo ""
+
+# Step 8: Get Device
+echo -e "${YELLOW}Step 8: Get Device '0011223344556677'...${NC}"
 response=$(curl -s -w "\n%{http_code}" -X GET "$BASE_URL/network-servers/localhost/devices/0011223344556677")
 
 http_code=$(echo "$response" | tail -n1)

@@ -1,8 +1,12 @@
 package gateway
 
 import (
+	"encoding/binary"
+	"errors"
+	"fmt"
 	"log"
 
+	"github.com/brocaar/lorawan"
 	"github.com/gorilla/websocket"
 )
 
@@ -39,7 +43,7 @@ func (g *Gateway) lnsDataConnect() error {
 
 	// Send version message to receive router_config
 	versionMsg := `{"msgtype":"version","station":"lorawan-simulator","protocol":2}`
-	g.lnsDataSend(versionMsg)
+	g.send(versionMsg)
 
 	// TODO: create timeout for router_config
 
@@ -57,7 +61,6 @@ func (g *Gateway) lnsDataReadLoop() {
 		}
 		log.Printf("[%s] data read: %s", g.eui, msg)
 	}
-
 }
 
 func (g *Gateway) lnsDataWriteLoop() {
@@ -71,16 +74,56 @@ func (g *Gateway) lnsDataWriteLoop() {
 	}
 }
 
-func (g *Gateway) lnsDataSend(message string) {
+func (g *Gateway) send(message string) error {
 	g.mu.RLock()
 	dataSendCh := g.dataSendCh
 	g.mu.RUnlock()
 
 	if dataSendCh == nil {
 		log.Printf("[%s] data write error: not allowed", g.eui)
-		return
+		return errors.New("not allowed")
 	}
-	g.dataSendCh <- message
+	dataSendCh <- message
+
+	return nil
+}
+
+func (g *Gateway) Forward(frame lorawan.PHYPayload) error {
+	switch frame.MHDR.MType {
+	case lorawan.JoinRequest:
+		// Type assert MACPayload to JoinRequestPayload
+		joinReq, ok := frame.MACPayload.(*lorawan.JoinRequestPayload)
+		if !ok {
+			return errors.New("invalid join request payload")
+		}
+
+		// Convert MHDR to number
+		mhdr, err := frame.MHDR.MarshalBinary()
+		if err != nil {
+			return errors.New("invalid MHDR")
+		}
+
+		// Convert MIC to number
+		mic := binary.LittleEndian.Uint32(frame.MIC[:])
+
+		// TODO: dynamic DR, freq and upinfo
+		updfMsg := fmt.Sprintf(`{"msgtype":"jreq","MHdr":%d,"JoinEui":"%s","DevEui":"%s","DevNonce":%d,"MIC":%d,"DR":5,"Freq":868300000,"upinfo":{"rctx":0,"xtime":26740123065958450,"gpstime":0,"rssi":-50,"snr":9}}`,
+			mhdr[0],
+			formatEUI(joinReq.JoinEUI),
+			formatEUI(joinReq.DevEUI),
+			joinReq.DevNonce,
+			mic,
+		)
+		return g.send(updfMsg)
+	case lorawan.UnconfirmedDataUp:
+		// TODO: implement unconfirmed uplink
+		return errors.New("unconfirmed uplink not implemented")
+	case lorawan.ConfirmedDataUp:
+		// TODO: implement confirmed uplink
+		return errors.New("confirmed uplink not implemented")
+	default:
+		return errors.New("unsupported uplink message type")
+	}
 }
 
 func (g *Gateway) lnsDataDisconnect() error {

@@ -73,13 +73,15 @@ func TestGetDevices(t *testing.T) {
 		ns, _ := testPool.Add("test-server")
 
 		// Add some devices
-		eui1 := lorawan.EUI64{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}
-		eui2 := lorawan.EUI64{0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18}
-		eui3 := lorawan.EUI64{0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28}
+		devEUI1 := lorawan.EUI64{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}
+		devEUI2 := lorawan.EUI64{0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18}
+		devEUI3 := lorawan.EUI64{0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28}
+		joinEUI := lorawan.EUI64{0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff, 0x00, 0x11}
+		appKey := lorawan.AES128Key{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10}
 
-		ns.AddDevice(eui1)
-		ns.AddDevice(eui2)
-		ns.AddDevice(eui3)
+		ns.AddDevice(devEUI1, joinEUI, appKey, 0)
+		ns.AddDevice(devEUI2, joinEUI, appKey, 0)
+		ns.AddDevice(devEUI3, joinEUI, appKey, 0)
 
 		req, _ := http.NewRequest("GET", "/network-servers/test-server/devices", nil)
 		w := httptest.NewRecorder()
@@ -109,8 +111,11 @@ func TestPostDevice(t *testing.T) {
 		router, testPool := setupDeviceTestRouter()
 		testPool.Add("test-server")
 
-		body := map[string]string{
-			"deveui": "0102030405060708",
+		body := map[string]interface{}{
+			"deveui":   "0102030405060708",
+			"joineui":  "aabbccddeeff0011",
+			"appkey":   "0102030405060708090a0b0c0d0e0f10",
+			"devnonce": 0,
 		}
 		jsonBody, _ := json.Marshal(body)
 
@@ -131,11 +136,15 @@ func TestPostDevice(t *testing.T) {
 		router, testPool := setupDeviceTestRouter()
 		ns, _ := testPool.Add("test-server")
 
-		eui := lorawan.EUI64{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}
-		ns.AddDevice(eui)
+		devEUI := lorawan.EUI64{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}
+		joinEUI := lorawan.EUI64{0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff, 0x00, 0x11}
+		appKey := lorawan.AES128Key{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10}
+		ns.AddDevice(devEUI, joinEUI, appKey, 0)
 
 		body := map[string]string{
-			"deveui": "0102030405060708",
+			"deveui":  "0102030405060708",
+			"joineui": "aabbccddeeff0011",
+			"appkey":  "0102030405060708090a0b0c0d0e0f10",
 		}
 		jsonBody, _ := json.Marshal(body)
 
@@ -172,7 +181,9 @@ func TestPostDevice(t *testing.T) {
 		testPool.Add("test-server")
 
 		body := map[string]string{
-			"deveui": "invalid-eui",
+			"deveui":  "invalid-eui",
+			"joineui": "aabbccddeeff0011",
+			"appkey":  "0102030405060708090a0b0c0d0e0f10",
 		}
 		jsonBody, _ := json.Marshal(body)
 
@@ -186,7 +197,7 @@ func TestPostDevice(t *testing.T) {
 		var response map[string]string
 		err := json.Unmarshal(w.Body.Bytes(), &response)
 		assert.NoError(t, err)
-		assert.Contains(t, response["message"], "invalid EUI format")
+		assert.Contains(t, response["message"], "invalid DevEui format")
 	})
 
 	t.Run("returns 400 when JSON is invalid", func(t *testing.T) {
@@ -207,7 +218,9 @@ func TestPostDevice(t *testing.T) {
 		router, _ := setupDeviceTestRouter()
 
 		body := map[string]string{
-			"deveui": "0102030405060708",
+			"deveui":  "0102030405060708",
+			"joineui": "aabbccddeeff0011",
+			"appkey":  "0102030405060708090a0b0c0d0e0f10",
 		}
 		jsonBody, _ := json.Marshal(body)
 
@@ -225,8 +238,10 @@ func TestGetDeviceByEUI(t *testing.T) {
 		router, testPool := setupDeviceTestRouter()
 		ns, _ := testPool.Add("test-server")
 
-		eui := lorawan.EUI64{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}
-		ns.AddDevice(eui)
+		devEUI := lorawan.EUI64{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}
+		joinEUI := lorawan.EUI64{0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff, 0x00, 0x11}
+		appKey := lorawan.AES128Key{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10}
+		ns.AddDevice(devEUI, joinEUI, appKey, 0)
 
 		req, _ := http.NewRequest("GET", "/network-servers/test-server/devices/0102030405060708", nil)
 		w := httptest.NewRecorder()
@@ -237,7 +252,7 @@ func TestGetDeviceByEUI(t *testing.T) {
 		var response device.DeviceInfo
 		err := json.Unmarshal(w.Body.Bytes(), &response)
 		assert.NoError(t, err)
-		assert.Equal(t, eui, response.DevEUI)
+		assert.Equal(t, devEUI, response.DevEUI)
 	})
 
 	t.Run("returns 404 when device not found", func(t *testing.T) {
@@ -288,8 +303,10 @@ func TestDelDevice(t *testing.T) {
 		router, testPool := setupDeviceTestRouter()
 		ns, _ := testPool.Add("test-server")
 
-		eui := lorawan.EUI64{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}
-		ns.AddDevice(eui)
+		devEUI := lorawan.EUI64{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}
+		joinEUI := lorawan.EUI64{0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff, 0x00, 0x11}
+		appKey := lorawan.AES128Key{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10}
+		ns.AddDevice(devEUI, joinEUI, appKey, 0)
 
 		req, _ := http.NewRequest("DELETE", "/network-servers/test-server/devices/0102030405060708", nil)
 		w := httptest.NewRecorder()
@@ -298,7 +315,7 @@ func TestDelDevice(t *testing.T) {
 		assert.Equal(t, http.StatusNoContent, w.Code)
 
 		// Verify it was actually removed
-		_, err := ns.GetDevice(eui)
+		_, err := ns.GetDevice(devEUI)
 		assert.Error(t, err)
 	})
 
@@ -361,7 +378,9 @@ func TestIntegration_DeviceWorkflow(t *testing.T) {
 
 		// 2. Create device
 		body := map[string]string{
-			"deveui": "0102030405060708",
+			"deveui":  "0102030405060708",
+			"joineui": "aabbccddeeff0011",
+			"appkey":  "0102030405060708090a0b0c0d0e0f10",
 		}
 		jsonBody, _ := json.Marshal(body)
 		req, _ = http.NewRequest("POST", "/network-servers/test-server/devices", bytes.NewBuffer(jsonBody))
@@ -411,7 +430,9 @@ func TestIntegration_DeviceWorkflow(t *testing.T) {
 
 		// Add device to server-1
 		body := map[string]string{
-			"deveui": "0102030405060708",
+			"deveui":  "0102030405060708",
+			"joineui": "aabbccddeeff0011",
+			"appkey":  "0102030405060708090a0b0c0d0e0f10",
 		}
 		jsonBody, _ := json.Marshal(body)
 		req, _ := http.NewRequest("POST", "/network-servers/server-1/devices", bytes.NewBuffer(jsonBody))

@@ -1,7 +1,6 @@
 package gateway
 
 import (
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -62,12 +61,8 @@ func (g *Gateway) lnsDiscovery() (string, error) {
 		g.mu.Unlock()
 	}()
 
-	// Send router message with EUI in format HH-HH-HH-HH-HH-HH-HH-HH
-	euiHex := hex.EncodeToString(g.eui[:])
-	euiFormatted := fmt.Sprintf("%s-%s-%s-%s-%s-%s-%s-%s",
-		euiHex[0:2], euiHex[2:4], euiHex[4:6], euiHex[6:8],
-		euiHex[8:10], euiHex[10:12], euiHex[12:14], euiHex[14:16])
-	routerMsg := fmt.Sprintf(`{"router":"%s"}`, euiFormatted)
+	// Send router message
+	routerMsg := fmt.Sprintf(`{"router":"%s"}`, formatEUI(g.eui))
 	if routerErr := conn.WriteMessage(websocket.TextMessage, []byte(routerMsg)); routerErr != nil {
 		log.Printf("[%s] discovery router error: %v", g.eui, routerErr)
 

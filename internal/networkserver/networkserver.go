@@ -96,23 +96,23 @@ func (ns *NetworkServer) RemoveGateway(EUI lorawan.EUI64) error {
 
 // Device management methods
 
-func (ns *NetworkServer) AddDevice(EUI lorawan.EUI64) (*device.Device, error) {
+func (ns *NetworkServer) AddDevice(DevEUI lorawan.EUI64, JoinEUI lorawan.EUI64, AppKey lorawan.AES128Key, DevNonce lorawan.DevNonce) (*device.Device, error) {
 	ns.mu.Lock()
 	defer ns.mu.Unlock()
 
-	if _, exists := ns.devices[EUI]; exists {
+	if _, exists := ns.devices[DevEUI]; exists {
 		return nil, errors.New("device already exists")
 	}
 
-	ns.devices[EUI] = device.New(EUI)
-	return ns.devices[EUI], nil
+	ns.devices[DevEUI] = device.New(DevEUI, JoinEUI, AppKey, DevNonce)
+	return ns.devices[DevEUI], nil
 }
 
-func (ns *NetworkServer) GetDevice(EUI lorawan.EUI64) (*device.Device, error) {
+func (ns *NetworkServer) GetDevice(DevEUI lorawan.EUI64) (*device.Device, error) {
 	ns.mu.RLock()
 	defer ns.mu.RUnlock()
 
-	device, exists := ns.devices[EUI]
+	device, exists := ns.devices[DevEUI]
 	if !exists {
 		return nil, errors.New("device not found")
 	}
@@ -131,15 +131,38 @@ func (ns *NetworkServer) ListDevices() []device.DeviceInfo {
 	return devices
 }
 
-func (ns *NetworkServer) RemoveDevice(EUI lorawan.EUI64) error {
+func (ns *NetworkServer) RemoveDevice(DevEUI lorawan.EUI64) error {
 	ns.mu.Lock()
 	defer ns.mu.Unlock()
 
-	if _, exists := ns.devices[EUI]; !exists {
+	if _, exists := ns.devices[DevEUI]; !exists {
 		return errors.New("device not found")
 	}
 
-	delete(ns.devices, EUI)
+	delete(ns.devices, DevEUI)
+
+	return nil
+}
+
+func (ns *NetworkServer) SendJoinRequest(DevEUI lorawan.EUI64) error {
+	ns.mu.Lock()
+	defer ns.mu.Unlock()
+
+	device, exists := ns.devices[DevEUI]
+	if !exists {
+		return errors.New("device not found")
+	}
+
+	// Prepare JoinRequest frame
+	joinRequest, err := device.JoinRequest()
+	if err != nil {
+		return err
+	}
+
+	// Request gateways to forward uplink to LNS
+	for _, gw := range ns.gateways {
+		gw.Forward(joinRequest)
+	}
 
 	return nil
 }

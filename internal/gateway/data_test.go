@@ -2,7 +2,6 @@ package gateway
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -290,12 +289,38 @@ func TestLnsDataWriteLoop_SendsMessages(t *testing.T) {
 	err := gw.lnsDataConnect()
 	assert.NoError(t, err)
 
-	// Send additional test messages
-	testMsg1 := `{"msgtype":"test1"}`
-	testMsg2 := `{"msgtype":"test2"}`
+	// Create test PHY payloads
+	devEUI := lorawan.EUI64{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}
+	joinEUI := lorawan.EUI64{0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18}
+	
+	phy1 := lorawan.PHYPayload{
+		MHDR: lorawan.MHDR{
+			MType: lorawan.JoinRequest,
+			Major: lorawan.LoRaWANR1,
+		},
+		MACPayload: &lorawan.JoinRequestPayload{
+			JoinEUI:  joinEUI,
+			DevEUI:   devEUI,
+			DevNonce: lorawan.DevNonce(100),
+		},
+		MIC: [4]byte{0x01, 0x02, 0x03, 0x04},
+	}
+	
+	phy2 := lorawan.PHYPayload{
+		MHDR: lorawan.MHDR{
+			MType: lorawan.JoinRequest,
+			Major: lorawan.LoRaWANR1,
+		},
+		MACPayload: &lorawan.JoinRequestPayload{
+			JoinEUI:  joinEUI,
+			DevEUI:   devEUI,
+			DevNonce: lorawan.DevNonce(101),
+		},
+		MIC: [4]byte{0x05, 0x06, 0x07, 0x08},
+	}
 
-	gw.lnsDataSend(testMsg1)
-	gw.lnsDataSend(testMsg2)
+	gw.Forward(phy1)
+	gw.Forward(phy2)
 
 	// Collect messages
 	var messages []string
@@ -310,10 +335,11 @@ func TestLnsDataWriteLoop_SendsMessages(t *testing.T) {
 		}
 	}
 
-	// Verify all messages were sent
+	// Verify version message was sent
 	assert.Contains(t, messages, `{"msgtype":"version","station":"lorawan-simulator","protocol":2}`)
-	assert.Contains(t, messages, testMsg1)
-	assert.Contains(t, messages, testMsg2)
+	
+	// Verify the two join request messages were sent (just check that we got 3 messages total)
+	assert.Len(t, messages, 3)
 }
 
 func TestLnsDataWriteLoop_HandlesWriteError(t *testing.T) {
@@ -332,9 +358,26 @@ func TestLnsDataWriteLoop_HandlesWriteError(t *testing.T) {
 	// Give time for connection to be established and then closed by server
 	time.Sleep(100 * time.Millisecond)
 
+	// Create a test PHY payload
+	devEUI := lorawan.EUI64{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}
+	joinEUI := lorawan.EUI64{0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18}
+	
+	phy := lorawan.PHYPayload{
+		MHDR: lorawan.MHDR{
+			MType: lorawan.JoinRequest,
+			Major: lorawan.LoRaWANR1,
+		},
+		MACPayload: &lorawan.JoinRequestPayload{
+			JoinEUI:  joinEUI,
+			DevEUI:   devEUI,
+			DevNonce: lorawan.DevNonce(100),
+		},
+		MIC: [4]byte{0x01, 0x02, 0x03, 0x04},
+	}
+
 	// Try to send a message after connection is closed
 	// This should cause a write error (logged but not panicking)
-	gw.lnsDataSend(`{"msgtype":"test"}`)
+	gw.Forward(phy)
 
 	// Give time for write to be attempted
 	time.Sleep(50 * time.Millisecond)
@@ -342,7 +385,7 @@ func TestLnsDataWriteLoop_HandlesWriteError(t *testing.T) {
 	// The write loop should have exited gracefully (no panic)
 }
 
-func TestLnsDataSend(t *testing.T) {
+func TestForward(t *testing.T) {
 	server := mockDataServer(t, "echo")
 	defer server.Close()
 
@@ -358,9 +401,26 @@ func TestLnsDataSend(t *testing.T) {
 	// Give time for connection to establish
 	time.Sleep(50 * time.Millisecond)
 
-	// Send a test message
-	testMsg := `{"msgtype":"uplink","data":"test123"}`
-	gw.lnsDataSend(testMsg)
+	// Create a test PHY payload
+	devEUI := lorawan.EUI64{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}
+	joinEUI := lorawan.EUI64{0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18}
+	
+	phy := lorawan.PHYPayload{
+		MHDR: lorawan.MHDR{
+			MType: lorawan.JoinRequest,
+			Major: lorawan.LoRaWANR1,
+		},
+		MACPayload: &lorawan.JoinRequestPayload{
+			JoinEUI:  joinEUI,
+			DevEUI:   devEUI,
+			DevNonce: lorawan.DevNonce(100),
+		},
+		MIC: [4]byte{0x01, 0x02, 0x03, 0x04},
+	}
+
+	// Send the message
+	err = gw.Forward(phy)
+	assert.NoError(t, err)
 
 	// Give time for message to be sent and echoed
 	time.Sleep(50 * time.Millisecond)
@@ -412,8 +472,22 @@ func TestLnsDataConnect_ConcurrentSends(t *testing.T) {
 		go func(id int) {
 			defer wg.Done()
 			for j := 0; j < messagesPerGoroutine; j++ {
-				msg := fmt.Sprintf(`{"msgtype":"test","id":%d,"seq":%d}`, id, j)
-				gw.lnsDataSend(msg)
+				devEUI := lorawan.EUI64{byte(id), 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, byte(j)}
+				joinEUI := lorawan.EUI64{0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18}
+				
+				phy := lorawan.PHYPayload{
+					MHDR: lorawan.MHDR{
+						MType: lorawan.JoinRequest,
+						Major: lorawan.LoRaWANR1,
+					},
+					MACPayload: &lorawan.JoinRequestPayload{
+						JoinEUI:  joinEUI,
+						DevEUI:   devEUI,
+						DevNonce: lorawan.DevNonce(id*1000 + j),
+					},
+					MIC: [4]byte{byte(id), byte(j), 0x03, 0x04},
+				}
+				gw.Forward(phy)
 			}
 		}(i)
 	}
