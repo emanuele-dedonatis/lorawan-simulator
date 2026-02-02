@@ -23,6 +23,67 @@ check_status() {
     fi
 }
 
+# Check if "clean" parameter is provided
+if [ "$1" = "clean" ]; then
+    # Header
+    echo "================================================"
+    echo "LoRaWAN Simulator - Cleanup Flow"
+    echo "================================================"
+    echo ""
+
+    # Step 1: Delete Device
+    echo -e "${YELLOW}Step 1: Deleting Device '0011223344556677'...${NC}"
+    response=$(curl -s -w "\n%{http_code}" -X DELETE "$BASE_URL/network-servers/localhost/devices/0011223344556677")
+
+    http_code=$(echo "$response" | tail -n1)
+    body=$(echo "$response" | sed '$d')
+
+    echo "Response: $body"
+    check_status "$http_code" "Delete Device"
+    echo ""
+
+    # Step 2: Disconnect Gateway
+    echo -e "${YELLOW}Step 2: Disconnecting Gateway 'AABBCCDDEEFF0011'...${NC}"
+    response=$(curl -s -w "\n%{http_code}" -X POST "$BASE_URL/network-servers/localhost/gateways/AABBCCDDEEFF0011/disconnect")
+
+    http_code=$(echo "$response" | tail -n1)
+    body=$(echo "$response" | sed '$d')
+
+    echo "Response: $body"
+    check_status "$http_code" "Disconnect Gateway"
+    echo ""
+
+    # Step 3: Delete Gateway
+    echo -e "${YELLOW}Step 3: Deleting Gateway 'AABBCCDDEEFF0011'...${NC}"
+    response=$(curl -s -w "\n%{http_code}" -X DELETE "$BASE_URL/network-servers/localhost/gateways/AABBCCDDEEFF0011")
+
+    http_code=$(echo "$response" | tail -n1)
+    body=$(echo "$response" | sed '$d')
+
+    echo "Response: $body"
+    check_status "$http_code" "Delete Gateway"
+    echo ""
+
+    # Step 4: Delete Network Server
+    echo -e "${YELLOW}Step 4: Deleting Network Server 'localhost'...${NC}"
+    response=$(curl -s -w "\n%{http_code}" -X DELETE "$BASE_URL/network-servers/localhost")
+
+    http_code=$(echo "$response" | tail -n1)
+    body=$(echo "$response" | sed '$d')
+
+    echo "Response: $body"
+    check_status "$http_code" "Delete Network Server"
+    echo ""
+
+    # Footer
+    echo "================================================"
+    echo -e "${GREEN}✓ Cleanup completed!${NC}"
+    echo "================================================"
+    echo ""
+    
+    exit 0
+fi
+
 # Header
 echo "================================================"
 echo "LoRaWAN Simulator - Basic Flow Test"
@@ -84,6 +145,36 @@ body=$(echo "$response" | sed '$d')
 
 echo "Response: $body"
 check_status "$http_code" "Get Gateway"
+if [ $? -ne 0 ]; then
+    exit 1
+fi
+echo ""
+
+# Step 5: Add Device
+echo -e "${YELLOW}Step 5: Adding Device '0011223344556677'...${NC}"
+response=$(curl -s -w "\n%{http_code}" -X POST "$BASE_URL/network-servers/localhost/devices" \
+  -H "Content-Type: application/json" \
+  -d '{"deveui":"0011223344556677"}')
+
+http_code=$(echo "$response" | tail -n1)
+body=$(echo "$response" | sed '$d')
+
+echo "Response: $body"
+check_status "$http_code" "Add Device"
+if [ $? -ne 0 ]; then
+    exit 1
+fi
+echo ""
+
+# Step 6: Get Device
+echo -e "${YELLOW}Step 6: Get Device '0011223344556677'...${NC}"
+response=$(curl -s -w "\n%{http_code}" -X GET "$BASE_URL/network-servers/localhost/devices/0011223344556677")
+
+http_code=$(echo "$response" | tail -n1)
+body=$(echo "$response" | sed '$d')
+
+echo "Response: $body"
+check_status "$http_code" "Get Device"
 if [ $? -ne 0 ]; then
     exit 1
 fi

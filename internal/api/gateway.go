@@ -9,7 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// Middleware that validates network server exists and stores it in context
+// Middleware that validates gateway exists and stores it in context
 func gatewayMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		ns := c.MustGet("networkServer").(*networkserver.NetworkServer)
@@ -38,12 +38,7 @@ func gatewayMiddleware() gin.HandlerFunc {
 func getGateways(c *gin.Context) {
 	ns := c.MustGet("networkServer").(*networkserver.NetworkServer)
 
-	gateways := ns.ListGateways()
-	res := make([]gateway.GatewayInfo, 0, len(gateways))
-	for _, gw := range gateways {
-		res = append(res, gw.GetInfo())
-	}
-	c.IndentedJSON(http.StatusOK, res)
+	c.IndentedJSON(http.StatusOK, ns.ListGateways())
 }
 
 func postGateway(c *gin.Context) {

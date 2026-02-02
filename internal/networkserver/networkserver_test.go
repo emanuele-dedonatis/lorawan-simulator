@@ -132,7 +132,7 @@ func TestNetworkServer_ListGateways(t *testing.T) {
 		// Verify all EUIs are present
 		euiMap := make(map[lorawan.EUI64]bool)
 		for _, gw := range gateways {
-			euiMap[gw.GetInfo().EUI] = true
+			euiMap[gw.EUI] = true
 		}
 
 		assert.True(t, euiMap[eui1])

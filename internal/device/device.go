@@ -1,6 +1,10 @@
 package device
 
-import "github.com/brocaar/lorawan"
+import (
+	"sync"
+
+	"github.com/brocaar/lorawan"
+)
 
 type Device struct {
 	DevEUI  lorawan.EUI64
@@ -13,4 +17,25 @@ type Device struct {
 
 	FCntUp uint32
 	FCntDn uint32
+
+	mu sync.RWMutex
+}
+
+type DeviceInfo struct {
+	DevEUI lorawan.EUI64 `json:"deveui"`
+}
+
+func New(EUI lorawan.EUI64) *Device {
+	return &Device{
+		DevEUI: EUI,
+	}
+}
+
+func (d *Device) GetInfo() DeviceInfo {
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+
+	return DeviceInfo{
+		DevEUI: d.DevEUI,
+	}
 }

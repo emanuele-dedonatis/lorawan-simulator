@@ -68,15 +68,15 @@ func (ns *NetworkServer) GetGateway(EUI lorawan.EUI64) (*gateway.Gateway, error)
 	return gateway, nil
 }
 
-func (ns *NetworkServer) ListGateways() []*gateway.Gateway {
+func (ns *NetworkServer) ListGateways() []gateway.GatewayInfo {
 	ns.mu.RLock()
 	defer ns.mu.RUnlock()
 
-	gateways := make([]*gateway.Gateway, 0, len(ns.gateways))
+	gatewayInfos := make([]gateway.GatewayInfo, 0, len(ns.gateways))
 	for _, gateway := range ns.gateways {
-		gateways = append(gateways, gateway)
+		gatewayInfos = append(gatewayInfos, gateway.GetInfo())
 	}
-	return gateways
+	return gatewayInfos
 }
 
 func (ns *NetworkServer) RemoveGateway(EUI lorawan.EUI64) error {
@@ -87,6 +87,8 @@ func (ns *NetworkServer) RemoveGateway(EUI lorawan.EUI64) error {
 		return errors.New("gateway not found")
 	}
 
+	// TODO: disconnect gateway
+
 	delete(ns.gateways, EUI)
 
 	return nil
@@ -94,4 +96,50 @@ func (ns *NetworkServer) RemoveGateway(EUI lorawan.EUI64) error {
 
 // Device management methods
 
-// TODO
+func (ns *NetworkServer) AddDevice(EUI lorawan.EUI64) (*device.Device, error) {
+	ns.mu.Lock()
+	defer ns.mu.Unlock()
+
+	if _, exists := ns.devices[EUI]; exists {
+		return nil, errors.New("device already exists")
+	}
+
+	ns.devices[EUI] = device.New(EUI)
+	return ns.devices[EUI], nil
+}
+
+func (ns *NetworkServer) GetDevice(EUI lorawan.EUI64) (*device.Device, error) {
+	ns.mu.RLock()
+	defer ns.mu.RUnlock()
+
+	device, exists := ns.devices[EUI]
+	if !exists {
+		return nil, errors.New("device not found")
+	}
+
+	return device, nil
+}
+
+func (ns *NetworkServer) ListDevices() []device.DeviceInfo {
+	ns.mu.RLock()
+	defer ns.mu.RUnlock()
+
+	devices := make([]device.DeviceInfo, 0, len(ns.devices))
+	for _, device := range ns.devices {
+		devices = append(devices, device.GetInfo())
+	}
+	return devices
+}
+
+func (ns *NetworkServer) RemoveDevice(EUI lorawan.EUI64) error {
+	ns.mu.Lock()
+	defer ns.mu.Unlock()
+
+	if _, exists := ns.devices[EUI]; !exists {
+		return errors.New("device not found")
+	}
+
+	delete(ns.devices, EUI)
+
+	return nil
+}

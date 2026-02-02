@@ -36,6 +36,9 @@ func Init(p *networkserver.Pool) {
 		// DELETE /network-servers/:name
 		ns.DELETE("", delNetworkServer)
 
+		/*
+		 *	GATEWAYS
+		 */
 		// GET /network-servers/:name/gateways
 		ns.GET("/gateways", getGateways)
 
@@ -56,6 +59,25 @@ func Init(p *networkserver.Pool) {
 
 			// POST /network-servers/:name/gateways/:eui/disconnect
 			gw.POST("/disconnect", disconnectGateway)
+		}
+
+		/*
+		 *	DEVICES
+		 */
+		// GET /network-servers/:name/devices
+		ns.GET("/devices", getDevices)
+
+		// POST /network-servers/:name/devices
+		ns.POST("/devices", postDevice)
+
+		dev := ns.Group("/devices/:eui")
+		dev.Use(deviceMiddleware())
+		{
+			// GET /network-servers/:name/devices/:eui
+			dev.GET("", getDeviceByEUI)
+
+			// DELETE /network-servers/:name/devices/:eui
+			dev.DELETE("", delDevice)
 		}
 	}
 
