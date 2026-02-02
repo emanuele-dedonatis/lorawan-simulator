@@ -95,15 +95,3 @@ func timeoutMiddleware(timeout time.Duration) gin.HandlerFunc {
 		}
 	}
 }
-
-func waitForResult(reply <-chan error) error {
-	timer := time.NewTimer(apiTimeout)
-	defer timer.Stop()
-
-	select {
-	case err := <-reply:
-		return err
-	case <-timer.C:
-		return ErrTimeout
-	}
-}
