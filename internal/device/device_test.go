@@ -8,13 +8,19 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+// Helper function to create a device with uplink channel for testing
+func newTestDevice(devEUI lorawan.EUI64, joinEUI lorawan.EUI64, appKey lorawan.AES128Key, devNonce lorawan.DevNonce) *Device {
+	uplinkCh := make(chan lorawan.PHYPayload, 10)
+	return New(uplinkCh, devEUI, joinEUI, appKey, devNonce)
+}
+
 func TestNew(t *testing.T) {
 	t.Run("creates device with correct EUI", func(t *testing.T) {
 		devEUI := lorawan.EUI64{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}
 		joinEUI := lorawan.EUI64{0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18}
 		appKey := lorawan.AES128Key{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10}
 		devNonce := lorawan.DevNonce(0)
-		device := New(devEUI, joinEUI, appKey, devNonce)
+		device := newTestDevice(devEUI, joinEUI, appKey, devNonce)
 
 		assert.NotNil(t, device)
 		assert.Equal(t, devEUI, device.DevEUI)
@@ -36,8 +42,8 @@ func TestNew(t *testing.T) {
 		appKey2 := lorawan.AES128Key{0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d, 0x1e, 0x1f, 0x20}
 		devNonce2 := lorawan.DevNonce(0)
 
-		device1 := New(devEUI1, joinEUI1, appKey1, devNonce1)
-		device2 := New(devEUI2, joinEUI2, appKey2, devNonce2)
+		device1 := newTestDevice(devEUI1, joinEUI1, appKey1, devNonce1)
+		device2 := newTestDevice(devEUI2, joinEUI2, appKey2, devNonce2)
 
 		assert.NotNil(t, device1)
 		assert.NotNil(t, device2)
@@ -53,7 +59,7 @@ func TestDevice_GetInfo(t *testing.T) {
 		joinEUI := lorawan.EUI64{0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18}
 		appKey := lorawan.AES128Key{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10}
 		devNonce := lorawan.DevNonce(0)
-		device := New(devEUI, joinEUI, appKey, devNonce)
+		device := newTestDevice(devEUI, joinEUI, appKey, devNonce)
 
 		info := device.GetInfo()
 
@@ -68,7 +74,7 @@ func TestDevice_GetInfo(t *testing.T) {
 		joinEUI := lorawan.EUI64{0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18}
 		appKey := lorawan.AES128Key{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10}
 		devNonce := lorawan.DevNonce(0)
-		device := New(devEUI, joinEUI, appKey, devNonce)
+		device := newTestDevice(devEUI, joinEUI, appKey, devNonce)
 
 		// Test concurrent reads
 		done := make(chan bool)
@@ -93,7 +99,7 @@ func TestDeviceInfo_JSON(t *testing.T) {
 		joinEUI := lorawan.EUI64{0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18}
 		appKey := lorawan.AES128Key{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10}
 		devNonce := lorawan.DevNonce(0)
-		device := New(devEUI, joinEUI, appKey, devNonce)
+		device := newTestDevice(devEUI, joinEUI, appKey, devNonce)
 		info := device.GetInfo()
 
 		// The struct has json tags, so it should be serializable
@@ -107,7 +113,7 @@ func TestDevice_JoinRequest(t *testing.T) {
 		joinEUI := lorawan.EUI64{0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18}
 		appKey := lorawan.AES128Key{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10}
 		devNonce := lorawan.DevNonce(100)
-		device := New(devEUI, joinEUI, appKey, devNonce)
+		device := newTestDevice(devEUI, joinEUI, appKey, devNonce)
 
 		phy, err := device.JoinRequest()
 		assert.NoError(t, err)
@@ -132,7 +138,7 @@ func TestDevice_JoinRequest(t *testing.T) {
 		joinEUI := lorawan.EUI64{0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18}
 		appKey := lorawan.AES128Key{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10}
 		devNonce := lorawan.DevNonce(100)
-		device := New(devEUI, joinEUI, appKey, devNonce)
+		device := newTestDevice(devEUI, joinEUI, appKey, devNonce)
 
 		// First join request
 		phy1, err := device.JoinRequest()
@@ -156,7 +162,7 @@ func TestDevice_JoinRequest(t *testing.T) {
 		joinEUI := lorawan.EUI64{0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18}
 		appKey := lorawan.AES128Key{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10}
 		devNonce := lorawan.DevNonce(0)
-		device := New(devEUI, joinEUI, appKey, devNonce)
+		device := newTestDevice(devEUI, joinEUI, appKey, devNonce)
 
 		const numRequests = 10
 		var wg sync.WaitGroup

@@ -1,6 +1,7 @@
 package device
 
 import (
+	"log"
 	"sync"
 
 	"github.com/brocaar/lorawan"
@@ -19,7 +20,8 @@ type Device struct {
 	FCntUp uint32
 	FCntDn uint32
 
-	mu sync.RWMutex
+	mu              sync.RWMutex
+	broadcastUplink chan<- lorawan.PHYPayload
 }
 
 type DeviceInfo struct {
@@ -29,12 +31,13 @@ type DeviceInfo struct {
 	DevNonce lorawan.DevNonce  `json:"devnonce"`
 }
 
-func New(DevEUI lorawan.EUI64, JoinEUI lorawan.EUI64, AppKey lorawan.AES128Key, DevNonce lorawan.DevNonce) *Device {
+func New(broadcastUplink chan<- lorawan.PHYPayload, DevEUI lorawan.EUI64, JoinEUI lorawan.EUI64, AppKey lorawan.AES128Key, DevNonce lorawan.DevNonce) *Device {
 	return &Device{
-		DevEUI:   DevEUI,
-		JoinEUI:  JoinEUI,
-		AppKey:   AppKey,
-		DevNonce: DevNonce,
+		broadcastUplink: broadcastUplink,
+		DevEUI:          DevEUI,
+		JoinEUI:         JoinEUI,
+		AppKey:          AppKey,
+		DevNonce:        DevNonce,
 	}
 }
 
@@ -48,6 +51,13 @@ func (d *Device) GetInfo() DeviceInfo {
 		AppKey:   d.AppKey,
 		DevNonce: d.DevNonce,
 	}
+}
+
+func (d *Device) Downlink(frame lorawan.PHYPayload) error {
+	// TODO: handle received downlink
+	log.Printf("[%s] received downlink", d.DevEUI)
+
+	return nil
 }
 
 func (d *Device) JoinRequest() (lorawan.PHYPayload, error) {
@@ -73,5 +83,21 @@ func (d *Device) JoinRequest() (lorawan.PHYPayload, error) {
 		return lorawan.PHYPayload{}, err
 	}
 
+	d.broadcast(phy)
+
 	return phy, nil
+}
+
+func (d *Device) broadcast(phy lorawan.PHYPayload) {
+	// Broadcast to gateways
+	d.mu.RLock()
+	broadcastCh := d.broadcastUplink
+	d.mu.RUnlock()
+
+	if broadcastCh != nil {
+		log.Printf("[%s] broadcasting uplink", d.DevEUI)
+		go func() {
+			broadcastCh <- phy
+		}()
+	}
 }

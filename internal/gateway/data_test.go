@@ -14,6 +14,12 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+// Helper function to create a gateway with downlink channel for testing
+func newTestGateway(eui lorawan.EUI64, discoveryURI string) *Gateway {
+	downlinkCh := make(chan lorawan.PHYPayload, 10)
+	return New(downlinkCh, eui, discoveryURI)
+}
+
 // Mock WebSocket server that simulates LNS data endpoint
 func mockDataServer(t *testing.T, behavior string) *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -112,7 +118,7 @@ func TestLnsDataConnect_Success(t *testing.T) {
 	wsURL := "ws" + strings.TrimPrefix(server.URL, "http")
 
 	eui := lorawan.EUI64{0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff, 0x00, 0x11}
-	gw := New(eui, "ws://discovery.test")
+	gw := newTestGateway(eui, "ws://discovery.test")
 	gw.dataURI = wsURL
 
 	err := gw.lnsDataConnect()
@@ -130,7 +136,7 @@ func TestLnsDataConnect_Success(t *testing.T) {
 
 func TestLnsDataConnect_ConnectionError(t *testing.T) {
 	eui := lorawan.EUI64{0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff, 0x00, 0x11}
-	gw := New(eui, "ws://discovery.test")
+	gw := newTestGateway(eui, "ws://discovery.test")
 	gw.dataURI = "ws://nonexistent.local:9999/invalid"
 
 	err := gw.lnsDataConnect()
@@ -148,7 +154,7 @@ func TestLnsDataConnect_StateTransitions(t *testing.T) {
 	wsURL := "ws" + strings.TrimPrefix(server.URL, "http")
 
 	eui := lorawan.EUI64{0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff, 0x00, 0x11}
-	gw := New(eui, "ws://discovery.test")
+	gw := newTestGateway(eui, "ws://discovery.test")
 	gw.dataURI = wsURL
 
 	// Initial state
@@ -190,7 +196,7 @@ func TestLnsDataConnect_SendsVersionMessage(t *testing.T) {
 	wsURL := "ws" + strings.TrimPrefix(server.URL, "http")
 
 	eui := lorawan.EUI64{0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff, 0x00, 0x11}
-	gw := New(eui, "ws://discovery.test")
+	gw := newTestGateway(eui, "ws://discovery.test")
 	gw.dataURI = wsURL
 
 	err := gw.lnsDataConnect()
@@ -221,7 +227,7 @@ func TestLnsDataReadLoop_ReceivesMessages(t *testing.T) {
 	wsURL := "ws" + strings.TrimPrefix(server.URL, "http")
 
 	eui := lorawan.EUI64{0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff, 0x00, 0x11}
-	gw := New(eui, "ws://discovery.test")
+	gw := newTestGateway(eui, "ws://discovery.test")
 	gw.dataURI = wsURL
 
 	err := gw.lnsDataConnect()
@@ -243,7 +249,7 @@ func TestLnsDataReadLoop_HandlesReadError(t *testing.T) {
 	wsURL := "ws" + strings.TrimPrefix(server.URL, "http")
 
 	eui := lorawan.EUI64{0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff, 0x00, 0x11}
-	gw := New(eui, "ws://discovery.test")
+	gw := newTestGateway(eui, "ws://discovery.test")
 	gw.dataURI = wsURL
 	gw.dataDone = make(chan struct{})
 
@@ -283,7 +289,7 @@ func TestLnsDataWriteLoop_SendsMessages(t *testing.T) {
 	wsURL := "ws" + strings.TrimPrefix(server.URL, "http")
 
 	eui := lorawan.EUI64{0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff, 0x00, 0x11}
-	gw := New(eui, "ws://discovery.test")
+	gw := newTestGateway(eui, "ws://discovery.test")
 	gw.dataURI = wsURL
 
 	err := gw.lnsDataConnect()
@@ -349,7 +355,7 @@ func TestLnsDataWriteLoop_HandlesWriteError(t *testing.T) {
 	wsURL := "ws" + strings.TrimPrefix(server.URL, "http")
 
 	eui := lorawan.EUI64{0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff, 0x00, 0x11}
-	gw := New(eui, "ws://discovery.test")
+	gw := newTestGateway(eui, "ws://discovery.test")
 	gw.dataURI = wsURL
 
 	err := gw.lnsDataConnect()
@@ -392,7 +398,7 @@ func TestForward(t *testing.T) {
 	wsURL := "ws" + strings.TrimPrefix(server.URL, "http")
 
 	eui := lorawan.EUI64{0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff, 0x00, 0x11}
-	gw := New(eui, "ws://discovery.test")
+	gw := newTestGateway(eui, "ws://discovery.test")
 	gw.dataURI = wsURL
 
 	err := gw.lnsDataConnect()
@@ -452,7 +458,7 @@ func TestLnsDataConnect_ConcurrentSends(t *testing.T) {
 	wsURL := "ws" + strings.TrimPrefix(server.URL, "http")
 
 	eui := lorawan.EUI64{0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff, 0x00, 0x11}
-	gw := New(eui, "ws://discovery.test")
+	gw := newTestGateway(eui, "ws://discovery.test")
 	gw.dataURI = wsURL
 
 	err := gw.lnsDataConnect()
@@ -518,7 +524,7 @@ func TestLnsDataConnect_ImmediateClose(t *testing.T) {
 	wsURL := "ws" + strings.TrimPrefix(server.URL, "http")
 
 	eui := lorawan.EUI64{0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff, 0x00, 0x11}
-	gw := New(eui, "ws://discovery.test")
+	gw := newTestGateway(eui, "ws://discovery.test")
 	gw.dataURI = wsURL
 	gw.dataDone = make(chan struct{})
 

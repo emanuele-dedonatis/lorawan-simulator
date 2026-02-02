@@ -97,7 +97,7 @@ func TestLnsDiscovery_Success(t *testing.T) {
 	wsURL := "ws" + strings.TrimPrefix(server.URL, "http")
 
 	eui := lorawan.EUI64{0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff, 0x00, 0x11}
-	gw := New(eui, wsURL)
+	gw := newTestGateway(eui, wsURL)
 
 	uri, err := gw.lnsDiscovery()
 
@@ -111,7 +111,7 @@ func TestLnsDiscovery_Success(t *testing.T) {
 
 func TestLnsDiscovery_ConnectionError(t *testing.T) {
 	eui := lorawan.EUI64{0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff, 0x00, 0x11}
-	gw := New(eui, "ws://nonexistent.local:9999")
+	gw := newTestGateway(eui, "ws://nonexistent.local:9999")
 
 	uri, err := gw.lnsDiscovery()
 
@@ -131,7 +131,7 @@ func TestLnsDiscovery_Timeout(t *testing.T) {
 	wsURL := "ws" + strings.TrimPrefix(server.URL, "http")
 
 	eui := lorawan.EUI64{0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff, 0x00, 0x11}
-	gw := New(eui, wsURL)
+	gw := newTestGateway(eui, wsURL)
 
 	start := time.Now()
 	uri, err := gw.lnsDiscovery()
@@ -157,7 +157,7 @@ func TestLnsDiscovery_InvalidJSON(t *testing.T) {
 	wsURL := "ws" + strings.TrimPrefix(server.URL, "http")
 
 	eui := lorawan.EUI64{0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff, 0x00, 0x11}
-	gw := New(eui, wsURL)
+	gw := newTestGateway(eui, wsURL)
 
 	uri, err := gw.lnsDiscovery()
 
@@ -177,7 +177,7 @@ func TestLnsDiscovery_ImmediateClose(t *testing.T) {
 	wsURL := "ws" + strings.TrimPrefix(server.URL, "http")
 
 	eui := lorawan.EUI64{0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff, 0x00, 0x11}
-	gw := New(eui, wsURL)
+	gw := newTestGateway(eui, wsURL)
 
 	uri, err := gw.lnsDiscovery()
 
@@ -223,7 +223,7 @@ func TestLnsDiscovery_EUIFormatting(t *testing.T) {
 
 	wsURL := "ws" + strings.TrimPrefix(server.URL, "http")
 	eui := lorawan.EUI64{0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff, 0x00, 0x11}
-	gw := New(eui, wsURL)
+	gw := newTestGateway(eui, wsURL)
 
 	uri, err := gw.lnsDiscovery()
 
@@ -267,7 +267,7 @@ func TestLnsDiscovery_StateTransitions(t *testing.T) {
 
 	wsURL := "ws" + strings.TrimPrefix(server.URL, "http")
 	eui := lorawan.EUI64{0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff, 0x00, 0x11}
-	gw := New(eui, wsURL)
+	gw := newTestGateway(eui, wsURL)
 
 	// Initial state
 	info := gw.GetInfo()
@@ -312,7 +312,7 @@ func TestLnsDiscovery_ConcurrentCalls(t *testing.T) {
 
 	wsURL := "ws" + strings.TrimPrefix(server.URL, "http")
 	eui := lorawan.EUI64{0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff, 0x00, 0x11}
-	gw := New(eui, wsURL)
+	gw := newTestGateway(eui, wsURL)
 
 	// Try concurrent discovery calls
 	const numCalls = 5

@@ -2,17 +2,51 @@ package networkserver
 
 import (
 	"errors"
+	"log"
 	"sync"
+
+	"github.com/brocaar/lorawan"
 )
 
 type Pool struct {
-	mu sync.RWMutex
-	ns map[string]*NetworkServer
+	mu                sync.RWMutex
+	ns                map[string]*NetworkServer
+	broadcastUplink   chan lorawan.PHYPayload
+	broadcastDownlink chan lorawan.PHYPayload
 }
 
 func NewPool() *Pool {
-	return &Pool{
-		ns: make(map[string]*NetworkServer),
+	p := &Pool{
+		ns:                make(map[string]*NetworkServer),
+		broadcastUplink:   make(chan lorawan.PHYPayload),
+		broadcastDownlink: make(chan lorawan.PHYPayload),
+	}
+
+	go p.broadcastUplinkWorker()
+	go p.broadcastDownlinkWorker()
+
+	return p
+}
+
+func (p *Pool) broadcastUplinkWorker() {
+	for uplink := range p.broadcastUplink {
+		p.mu.RLock()
+		for _, ns := range p.ns {
+			log.Printf("[pool] propagating uplink to network server %s", ns.name)
+			go ns.ForwardUplink(uplink)
+		}
+		p.mu.RUnlock()
+	}
+}
+
+func (p *Pool) broadcastDownlinkWorker() {
+	for downlink := range p.broadcastDownlink {
+		p.mu.RLock()
+		for _, ns := range p.ns {
+			log.Printf("[pool] propagating downlink to network server %s", ns.name)
+			go ns.ForwardDownlink(downlink)
+		}
+		p.mu.RUnlock()
 	}
 }
 
@@ -37,7 +71,7 @@ func (p *Pool) Add(name string) (*NetworkServer, error) {
 		return nil, errors.New("network server already exists")
 	}
 
-	p.ns[name] = New(name)
+	p.ns[name] = New(name, p.broadcastUplink, p.broadcastDownlink)
 	return p.ns[name], nil
 }
 

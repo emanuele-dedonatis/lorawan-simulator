@@ -2,6 +2,7 @@ package gateway
 
 import (
 	"encoding/binary"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -106,8 +107,8 @@ func (g *Gateway) Forward(frame lorawan.PHYPayload) error {
 			return errors.New("invalid MHDR")
 		}
 
-		// Convert MIC to number
-		mic := binary.LittleEndian.Uint32(frame.MIC[:])
+		// Convert MIC to signed int32 (as expected by ChirpStack Basic Station)
+		mic := int32(binary.LittleEndian.Uint32(frame.MIC[:]))
 
 		// TODO: dynamic DR, freq and upinfo
 		updfMsg := fmt.Sprintf(`{"msgtype":"jreq","MHdr":%d,"JoinEui":"%s","DevEui":"%s","DevNonce":%d,"MIC":%d,"DR":5,"Freq":868300000,"upinfo":{"rctx":0,"xtime":26740123065958450,"gpstime":0,"rssi":-50,"snr":9}}`,
@@ -162,7 +163,31 @@ func (g *Gateway) handleDownlinkMessage(msg string) {
 
 	log.Printf("[%s] downlink message for DevEui %s", g.eui, dnmsg.DevEui)
 
-	// TODO: dispatch to corresponding devices
+	// Decode hex string to bytes
+	pduBytes, err := hex.DecodeString(dnmsg.Pdu)
+	if err != nil {
+		log.Printf("[%s] failed to decode PDU hex: %v", g.eui, err)
+		return
+	}
+
+	// Unmarshal bytes into PHYPayload
+	var phyPayload lorawan.PHYPayload
+	if err := phyPayload.UnmarshalBinary(pduBytes); err != nil {
+		log.Printf("[%s] failed to unmarshal PHYPayload: %v", g.eui, err)
+		return
+	}
+
+	// Broadcast to devices
+	g.mu.RLock()
+	broadcastCh := g.broadcastDownlink
+	g.mu.RUnlock()
+
+	if broadcastCh != nil {
+		log.Printf("[%s] broadcasting downlink", g.eui)
+		go func() {
+			broadcastCh <- phyPayload
+		}()
+	}
 }
 
 func (g *Gateway) lnsDataDisconnect() error {

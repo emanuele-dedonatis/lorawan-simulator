@@ -2,6 +2,7 @@ package networkserver
 
 import (
 	"errors"
+	"log"
 	"sync"
 
 	"github.com/emanuele-dedonatis/lorawan-simulator/internal/device"
@@ -11,10 +12,12 @@ import (
 )
 
 type NetworkServer struct {
-	name     string
-	devices  map[lorawan.EUI64]*device.Device
-	gateways map[lorawan.EUI64]*gateway.Gateway
-	mu       sync.RWMutex
+	name              string
+	devices           map[lorawan.EUI64]*device.Device
+	gateways          map[lorawan.EUI64]*gateway.Gateway
+	mu                sync.RWMutex
+	broadcastUplink   chan<- lorawan.PHYPayload
+	broadcastDownlink chan<- lorawan.PHYPayload
 }
 
 type NetworkServerInfo struct {
@@ -23,11 +26,13 @@ type NetworkServerInfo struct {
 	GatewayCount int    `json:"gatewayCount"`
 }
 
-func New(name string) *NetworkServer {
+func New(name string, broadcastUplink chan<- lorawan.PHYPayload, broadcastDownlink chan<- lorawan.PHYPayload) *NetworkServer {
 	return &NetworkServer{
-		name:     name,
-		devices:  make(map[lorawan.EUI64]*device.Device),
-		gateways: make(map[lorawan.EUI64]*gateway.Gateway),
+		name:              name,
+		devices:           make(map[lorawan.EUI64]*device.Device),
+		gateways:          make(map[lorawan.EUI64]*gateway.Gateway),
+		broadcastUplink:   broadcastUplink,
+		broadcastDownlink: broadcastDownlink,
 	}
 }
 
@@ -52,7 +57,7 @@ func (ns *NetworkServer) AddGateway(EUI lorawan.EUI64, discoveryURI string) (*ga
 		return nil, errors.New("gateway already exists")
 	}
 
-	ns.gateways[EUI] = gateway.New(EUI, discoveryURI)
+	ns.gateways[EUI] = gateway.New(ns.broadcastDownlink, EUI, discoveryURI)
 	return ns.gateways[EUI], nil
 }
 
@@ -94,6 +99,19 @@ func (ns *NetworkServer) RemoveGateway(EUI lorawan.EUI64) error {
 	return nil
 }
 
+func (ns *NetworkServer) ForwardUplink(uplink lorawan.PHYPayload) error {
+	ns.mu.RLock()
+	defer ns.mu.RUnlock()
+
+	// TODO: filter by location
+	for _, gateway := range ns.gateways {
+		log.Printf("[%s] propagating uplink to gateway %s", ns.name, gateway.GetInfo().EUI)
+		go gateway.Forward(uplink)
+	}
+
+	return nil
+}
+
 // Device management methods
 
 func (ns *NetworkServer) AddDevice(DevEUI lorawan.EUI64, JoinEUI lorawan.EUI64, AppKey lorawan.AES128Key, DevNonce lorawan.DevNonce) (*device.Device, error) {
@@ -104,7 +122,7 @@ func (ns *NetworkServer) AddDevice(DevEUI lorawan.EUI64, JoinEUI lorawan.EUI64, 
 		return nil, errors.New("device already exists")
 	}
 
-	ns.devices[DevEUI] = device.New(DevEUI, JoinEUI, AppKey, DevNonce)
+	ns.devices[DevEUI] = device.New(ns.broadcastUplink, DevEUI, JoinEUI, AppKey, DevNonce)
 	return ns.devices[DevEUI], nil
 }
 
@@ -144,6 +162,19 @@ func (ns *NetworkServer) RemoveDevice(DevEUI lorawan.EUI64) error {
 	return nil
 }
 
+func (ns *NetworkServer) ForwardDownlink(downlink lorawan.PHYPayload) error {
+	ns.mu.RLock()
+	defer ns.mu.RUnlock()
+
+	// TODO: filter by location and deveui/devaddr
+	for _, device := range ns.devices {
+		log.Printf("[%s] propagating downlink to device %s", ns.name, device.GetInfo().DevEUI)
+		go device.Downlink(downlink)
+	}
+
+	return nil
+}
+
 func (ns *NetworkServer) SendJoinRequest(DevEUI lorawan.EUI64) error {
 	ns.mu.Lock()
 	defer ns.mu.Unlock()
@@ -154,14 +185,9 @@ func (ns *NetworkServer) SendJoinRequest(DevEUI lorawan.EUI64) error {
 	}
 
 	// Prepare JoinRequest frame
-	joinRequest, err := device.JoinRequest()
+	_, err := device.JoinRequest()
 	if err != nil {
 		return err
-	}
-
-	// Request gateways to forward uplink to LNS
-	for _, gw := range ns.gateways {
-		gw.Forward(joinRequest)
 	}
 
 	return nil

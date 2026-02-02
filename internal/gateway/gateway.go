@@ -9,15 +9,16 @@ import (
 )
 
 type Gateway struct {
-	eui            lorawan.EUI64
-	discoveryURI   string
-	discoveryState State
-	dataURI        string
-	dataState      State
-	dataWs         *websocket.Conn
-	dataDone       chan struct{}
-	dataSendCh     chan string
-	mu             sync.RWMutex
+	eui               lorawan.EUI64
+	discoveryURI      string
+	discoveryState    State
+	dataURI           string
+	dataState         State
+	dataWs            *websocket.Conn
+	dataDone          chan struct{}
+	dataSendCh        chan string
+	mu                sync.RWMutex
+	broadcastDownlink chan<- lorawan.PHYPayload
 }
 
 type GatewayInfo struct {
@@ -28,13 +29,14 @@ type GatewayInfo struct {
 	DataState      string        `json:"dataState"`
 }
 
-func New(EUI lorawan.EUI64, discoveryURI string) *Gateway {
+func New(broadcastDownlink chan<- lorawan.PHYPayload, EUI lorawan.EUI64, discoveryURI string) *Gateway {
 	return &Gateway{
-		eui:            EUI,
-		discoveryURI:   discoveryURI,
-		discoveryState: StateDisconnected,
-		dataURI:        "",
-		dataState:      StateDisconnected,
+		eui:               EUI,
+		discoveryURI:      discoveryURI,
+		discoveryState:    StateDisconnected,
+		dataURI:           "",
+		dataState:         StateDisconnected,
+		broadcastDownlink: broadcastDownlink,
 	}
 }
 

@@ -13,7 +13,7 @@ func TestNew(t *testing.T) {
 		eui := lorawan.EUI64{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}
 		discoveryURI := "wss://gateway.example.com:6887"
 
-		gw := New(eui, discoveryURI)
+		gw := newTestGateway(eui, discoveryURI)
 
 		assert.NotNil(t, gw)
 		assert.Equal(t, eui, gw.eui)
@@ -29,8 +29,8 @@ func TestNew(t *testing.T) {
 		discoveryURI1 := "wss://gateway1.example.com:6887"
 		discoveryURI2 := "wss://gateway2.example.com:6887"
 
-		gw1 := New(eui1, discoveryURI1)
-		gw2 := New(eui2, discoveryURI2)
+		gw1 := newTestGateway(eui1, discoveryURI1)
+		gw2 := newTestGateway(eui2, discoveryURI2)
 
 		assert.NotEqual(t, gw1, gw2)
 		assert.Equal(t, eui1, gw1.eui)
@@ -43,7 +43,7 @@ func TestNew(t *testing.T) {
 		eui := lorawan.EUI64{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}
 		discoveryURI := "wss://gateway.example.com:6887"
 
-		gw := New(eui, discoveryURI)
+		gw := newTestGateway(eui, discoveryURI)
 
 		assert.Equal(t, StateDisconnected, gw.discoveryState)
 		assert.Equal(t, StateDisconnected, gw.dataState)
@@ -54,7 +54,7 @@ func TestGateway_GetInfo(t *testing.T) {
 	t.Run("returns correct gateway info", func(t *testing.T) {
 		eui := lorawan.EUI64{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}
 		discoveryURI := "wss://gateway.example.com:6887"
-		gw := New(eui, discoveryURI)
+		gw := newTestGateway(eui, discoveryURI)
 
 		info := gw.GetInfo()
 
@@ -69,7 +69,7 @@ func TestGateway_GetInfo(t *testing.T) {
 		t.Skip("Skipping test that requires real WebSocket server")
 		eui := lorawan.EUI64{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}
 		discoveryURI := "ws://localhost:3001"
-		gw := New(eui, discoveryURI)
+		gw := newTestGateway(eui, discoveryURI)
 
 		err := gw.Connect()
 		assert.NoError(t, err)
@@ -82,7 +82,7 @@ func TestGateway_GetInfo(t *testing.T) {
 	t.Run("is thread-safe for concurrent reads", func(t *testing.T) {
 		eui := lorawan.EUI64{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}
 		discoveryURI := "wss://gateway.example.com:6887"
-		gw := New(eui, discoveryURI)
+		gw := newTestGateway(eui, discoveryURI)
 
 		var wg sync.WaitGroup
 		for i := 0; i < 100; i++ {
@@ -103,7 +103,7 @@ func TestGateway_Connect(t *testing.T) {
 		t.Skip("Skipping test that requires real WebSocket server")
 		eui := lorawan.EUI64{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}
 		discoveryURI := "ws://localhost:3001"
-		gw := New(eui, discoveryURI)
+		gw := newTestGateway(eui, discoveryURI)
 
 		info := gw.GetInfo()
 		assert.Equal(t, "disconnected", info.DiscoveryState)
@@ -119,7 +119,7 @@ func TestGateway_Connect(t *testing.T) {
 		t.Skip("Skipping test that requires real WebSocket server")
 		eui := lorawan.EUI64{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}
 		discoveryURI := "ws://localhost:3001"
-		gw := New(eui, discoveryURI)
+		gw := newTestGateway(eui, discoveryURI)
 
 		err := gw.Connect()
 		assert.NoError(t, err)
@@ -136,7 +136,7 @@ func TestGateway_Connect(t *testing.T) {
 		t.Skip("Skipping test that requires real WebSocket server")
 		eui := lorawan.EUI64{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}
 		discoveryURI := "ws://localhost:3001"
-		gw := New(eui, discoveryURI)
+		gw := newTestGateway(eui, discoveryURI)
 
 		var wg sync.WaitGroup
 		errorCount := 0
@@ -170,7 +170,7 @@ func TestGateway_Disconnect(t *testing.T) {
 		t.Skip("Skipping test that requires real WebSocket server")
 		eui := lorawan.EUI64{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}
 		discoveryURI := "ws://localhost:3001"
-		gw := New(eui, discoveryURI)
+		gw := newTestGateway(eui, discoveryURI)
 
 		err := gw.Connect()
 		assert.NoError(t, err)
@@ -189,7 +189,7 @@ func TestGateway_Disconnect(t *testing.T) {
 	t.Run("returns error when already disconnected", func(t *testing.T) {
 		eui := lorawan.EUI64{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}
 		discoveryURI := "wss://gateway.example.com:6887"
-		gw := New(eui, discoveryURI)
+		gw := newTestGateway(eui, discoveryURI)
 
 		info := gw.GetInfo()
 		assert.Equal(t, "disconnected", info.DataState)
@@ -203,7 +203,7 @@ func TestGateway_Disconnect(t *testing.T) {
 		t.Skip("Skipping test that requires real WebSocket server")
 		eui := lorawan.EUI64{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}
 		discoveryURI := "ws://localhost:3001"
-		gw := New(eui, discoveryURI)
+		gw := newTestGateway(eui, discoveryURI)
 
 		err := gw.Connect()
 		assert.NoError(t, err)
@@ -238,7 +238,7 @@ func TestGateway_StateTransitions(t *testing.T) {
 		t.Skip("Skipping test that requires real WebSocket server")
 		eui := lorawan.EUI64{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}
 		discoveryURI := "ws://localhost:3001"
-		gw := New(eui, discoveryURI)
+		gw := newTestGateway(eui, discoveryURI)
 
 		// Initial state
 		info := gw.GetInfo()
@@ -270,7 +270,7 @@ func TestGateway_StateTransitions(t *testing.T) {
 		t.Skip("Skipping test that requires real WebSocket server")
 		eui := lorawan.EUI64{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}
 		discoveryURI := "ws://localhost:3001"
-		gw := New(eui, discoveryURI)
+		gw := newTestGateway(eui, discoveryURI)
 
 		var wg sync.WaitGroup
 
@@ -305,7 +305,7 @@ func TestGateway_ConcurrentOperations(t *testing.T) {
 		t.Skip("Skipping test that requires real WebSocket server")
 		eui := lorawan.EUI64{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}
 		discoveryURI := "ws://localhost:3001"
-		gw := New(eui, discoveryURI)
+		gw := newTestGateway(eui, discoveryURI)
 
 		var wg sync.WaitGroup
 

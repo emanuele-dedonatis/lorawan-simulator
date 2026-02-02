@@ -7,10 +7,19 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+// Helper function to create a network server with channels for testing
+func newTestNetworkServer(name string) *NetworkServer {
+	uplinkCh := make(chan lorawan.PHYPayload, 10)
+	downlinkCh := make(chan lorawan.PHYPayload, 10)
+	return New(name, uplinkCh, downlinkCh)
+}
+
 func TestNew(t *testing.T) {
 	t.Run("creates network server with valid name", func(t *testing.T) {
 		name := "my-network-server"
-		ns := New(name)
+		uplinkCh := make(chan lorawan.PHYPayload)
+		downlinkCh := make(chan lorawan.PHYPayload)
+		ns := New(name, uplinkCh, downlinkCh)
 
 		assert.NotNil(t, ns)
 		assert.Equal(t, name, ns.name)
@@ -22,9 +31,13 @@ func TestNew(t *testing.T) {
 
 	t.Run("multiple instances are independent", func(t *testing.T) {
 		name1 := "server-1"
-		ns1 := New(name1)
+		uplinkCh1 := make(chan lorawan.PHYPayload)
+		downlinkCh1 := make(chan lorawan.PHYPayload)
+		ns1 := New(name1, uplinkCh1, downlinkCh1)
 		name2 := "server-2"
-		ns2 := New(name2)
+		uplinkCh2 := make(chan lorawan.PHYPayload)
+		downlinkCh2 := make(chan lorawan.PHYPayload)
+		ns2 := New(name2, uplinkCh2, downlinkCh2)
 
 		assert.NotEqual(t, ns1, ns2)
 		assert.Equal(t, name1, ns1.name)
@@ -34,7 +47,7 @@ func TestNew(t *testing.T) {
 
 func TestNetworkServer_AddGateway(t *testing.T) {
 	t.Run("adds gateway successfully", func(t *testing.T) {
-		ns := New("test-server")
+		ns := newTestNetworkServer("test-server")
 		eui := lorawan.EUI64{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}
 		discoveryURI := "wss://example.com:6887"
 
@@ -50,7 +63,7 @@ func TestNetworkServer_AddGateway(t *testing.T) {
 	})
 
 	t.Run("returns error when adding duplicate gateway", func(t *testing.T) {
-		ns := New("test-server")
+		ns := newTestNetworkServer("test-server")
 		eui := lorawan.EUI64{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}
 		discoveryURI := "wss://example.com:6887"
 
@@ -63,7 +76,7 @@ func TestNetworkServer_AddGateway(t *testing.T) {
 	})
 
 	t.Run("can add multiple different gateways", func(t *testing.T) {
-		ns := New("test-server")
+		ns := newTestNetworkServer("test-server")
 		eui1 := lorawan.EUI64{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}
 		eui2 := lorawan.EUI64{0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18}
 
@@ -82,7 +95,7 @@ func TestNetworkServer_AddGateway(t *testing.T) {
 
 func TestNetworkServer_GetGateway(t *testing.T) {
 	t.Run("gets existing gateway", func(t *testing.T) {
-		ns := New("test-server")
+		ns := newTestNetworkServer("test-server")
 		eui := lorawan.EUI64{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}
 		ns.AddGateway(eui, "wss://example.com")
 
@@ -94,7 +107,7 @@ func TestNetworkServer_GetGateway(t *testing.T) {
 	})
 
 	t.Run("returns err for non-existing gateway", func(t *testing.T) {
-		ns := New("test-server")
+		ns := newTestNetworkServer("test-server")
 		eui := lorawan.EUI64{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}
 
 		gw, err := ns.GetGateway(eui)
@@ -107,7 +120,7 @@ func TestNetworkServer_GetGateway(t *testing.T) {
 
 func TestNetworkServer_ListGateways(t *testing.T) {
 	t.Run("returns empty list when no gateways", func(t *testing.T) {
-		ns := New("test-server")
+		ns := newTestNetworkServer("test-server")
 
 		gateways := ns.ListGateways()
 
@@ -116,7 +129,7 @@ func TestNetworkServer_ListGateways(t *testing.T) {
 	})
 
 	t.Run("returns all gateways", func(t *testing.T) {
-		ns := New("test-server")
+		ns := newTestNetworkServer("test-server")
 		eui1 := lorawan.EUI64{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}
 		eui2 := lorawan.EUI64{0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18}
 		eui3 := lorawan.EUI64{0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28}
@@ -143,7 +156,7 @@ func TestNetworkServer_ListGateways(t *testing.T) {
 
 func TestNetworkServer_RemoveGateway(t *testing.T) {
 	t.Run("removes existing gateway", func(t *testing.T) {
-		ns := New("test-server")
+		ns := newTestNetworkServer("test-server")
 		eui := lorawan.EUI64{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}
 		ns.AddGateway(eui, "wss://example.com")
 
@@ -161,7 +174,7 @@ func TestNetworkServer_RemoveGateway(t *testing.T) {
 	})
 
 	t.Run("returns error when removing non-existing gateway", func(t *testing.T) {
-		ns := New("test-server")
+		ns := newTestNetworkServer("test-server")
 		eui := lorawan.EUI64{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}
 
 		err := ns.RemoveGateway(eui)
@@ -171,7 +184,7 @@ func TestNetworkServer_RemoveGateway(t *testing.T) {
 	})
 
 	t.Run("removes one gateway from multiple", func(t *testing.T) {
-		ns := New("test-server")
+		ns := newTestNetworkServer("test-server")
 		eui1 := lorawan.EUI64{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}
 		eui2 := lorawan.EUI64{0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18}
 		eui3 := lorawan.EUI64{0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28}
@@ -201,7 +214,7 @@ func TestNetworkServer_RemoveGateway(t *testing.T) {
 
 func TestNetworkServer_GetInfo(t *testing.T) {
 	t.Run("returns correct counts", func(t *testing.T) {
-		ns := New("test-server")
+		ns := newTestNetworkServer("test-server")
 
 		// Add gateways
 		eui1 := lorawan.EUI64{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}
