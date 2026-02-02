@@ -124,7 +124,7 @@ func TestLnsDataConnect_Success(t *testing.T) {
 
 	// Verify state is connected
 	info := gw.GetInfo()
-	assert.Equal(t, StateConnected, info.DataState)
+	assert.Equal(t, "connected", info.DataState)
 	assert.NotNil(t, gw.dataWs)
 	assert.NotNil(t, gw.dataSendCh)
 }
@@ -139,7 +139,7 @@ func TestLnsDataConnect_ConnectionError(t *testing.T) {
 
 	// Verify state is disconnected
 	info := gw.GetInfo()
-	assert.Equal(t, StateDisconnected, info.DataState)
+	assert.Equal(t, "disconnected", info.DataState)
 }
 
 func TestLnsDataConnect_StateTransitions(t *testing.T) {
@@ -153,7 +153,7 @@ func TestLnsDataConnect_StateTransitions(t *testing.T) {
 	gw.dataURI = wsURL
 
 	// Initial state
-	assert.Equal(t, StateDisconnected, gw.GetInfo().DataState)
+	assert.Equal(t, "disconnected", gw.GetInfo().DataState)
 
 	// Connect
 	err := gw.lnsDataConnect()
@@ -163,7 +163,7 @@ func TestLnsDataConnect_StateTransitions(t *testing.T) {
 	time.Sleep(50 * time.Millisecond)
 
 	// Final state should be Connected
-	assert.Equal(t, StateConnected, gw.GetInfo().DataState, "Final state should be StateConnected")
+	assert.Equal(t, "connected", gw.GetInfo().DataState, "Final state should be StateConnected")
 }
 
 func TestLnsDataConnect_SendsVersionMessage(t *testing.T) {
@@ -234,7 +234,7 @@ func TestLnsDataReadLoop_ReceivesMessages(t *testing.T) {
 	// The read loop should have received the router_config message
 	// (we can't directly observe it, but we can verify the connection stays alive)
 	info := gw.GetInfo()
-	assert.Equal(t, StateConnected, info.DataState)
+	assert.Equal(t, "connected", info.DataState)
 }
 
 func TestLnsDataReadLoop_HandlesReadError(t *testing.T) {

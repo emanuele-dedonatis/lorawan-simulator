@@ -11,6 +11,7 @@ func (g *Gateway) lnsDataConnect() error {
 	g.mu.Lock()
 	g.dataState = StateConnecting
 	g.mu.Unlock()
+	log.Printf("[%s] data connecting", g.eui)
 
 	conn, _, connErr := websocket.DefaultDialer.Dial(g.dataURI, nil)
 
@@ -25,13 +26,13 @@ func (g *Gateway) lnsDataConnect() error {
 	}
 
 	// Connected
-	log.Printf("[%s] data connected", g.eui)
 	g.mu.Lock()
 	g.dataWs = conn
 	g.dataState = StateConnected
 	g.dataSendCh = make(chan string)
 	g.dataDone = make(chan struct{})
 	g.mu.Unlock()
+	log.Printf("[%s] data connected", g.eui)
 
 	go g.lnsDataReadLoop()
 	go g.lnsDataWriteLoop()
@@ -70,11 +71,45 @@ func (g *Gateway) lnsDataWriteLoop() {
 	}
 }
 
-// Send a message
 func (g *Gateway) lnsDataSend(message string) {
-	if g.dataSendCh == nil {
-		log.Printf("[%s] data write error: not connected", g.eui)
+	g.mu.RLock()
+	dataSendCh := g.dataSendCh
+	g.mu.RUnlock()
+
+	if dataSendCh == nil {
+		log.Printf("[%s] data write error: not allowed", g.eui)
 		return
 	}
 	g.dataSendCh <- message
+}
+
+func (g *Gateway) lnsDataDisconnect() error {
+	g.mu.Lock()
+	g.dataState = StateDisconnecting
+	g.mu.Unlock()
+
+	// Don't allow sending messages anymore
+	close(g.dataSendCh)
+
+	// Close the connection
+	log.Printf("[%s] data disconnecting", g.eui)
+	err := g.dataWs.Close()
+	if err != nil {
+		g.mu.Lock()
+		g.dataState = StateDisconnectionError
+		g.mu.Unlock()
+		log.Printf("[%s] data disconnection error: %v", g.eui, err)
+		return err
+	}
+
+	// Wait for lnsDataReadLoop termination
+	<-g.dataDone
+
+	g.mu.Lock()
+	g.dataWs = nil
+	g.dataState = StateDisconnected
+	g.mu.Unlock()
+	log.Printf("[%s] data disconnected", g.eui)
+
+	return nil
 }

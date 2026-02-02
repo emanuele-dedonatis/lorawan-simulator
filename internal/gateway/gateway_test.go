@@ -60,8 +60,8 @@ func TestGateway_GetInfo(t *testing.T) {
 
 		assert.Equal(t, eui, info.EUI)
 		assert.Equal(t, discoveryURI, info.DiscoveryURI)
-		assert.Equal(t, StateDisconnected, info.DiscoveryState)
-		assert.Equal(t, StateDisconnected, info.DataState)
+		assert.Equal(t, "disconnected", info.DiscoveryState)
+		assert.Equal(t, "disconnected", info.DataState)
 		assert.Equal(t, "", info.DataURI)
 	})
 
@@ -75,8 +75,8 @@ func TestGateway_GetInfo(t *testing.T) {
 		assert.NoError(t, err)
 
 		info := gw.GetInfo()
-		assert.Equal(t, StateDisconnected, info.DiscoveryState) // Discovery closes after getting data URI
-		assert.NotEmpty(t, info.DataURI)                        // Should have received data URI
+		assert.Equal(t, "disconnected", info.DiscoveryState) // Discovery closes after getting data URI
+		assert.NotEmpty(t, info.DataURI)                     // Should have received data URI
 	})
 
 	t.Run("is thread-safe for concurrent reads", func(t *testing.T) {
@@ -106,7 +106,7 @@ func TestGateway_Connect(t *testing.T) {
 		gw := New(eui, discoveryURI)
 
 		info := gw.GetInfo()
-		assert.Equal(t, StateDisconnected, info.DiscoveryState)
+		assert.Equal(t, "disconnected", info.DiscoveryState)
 
 		err := gw.Connect()
 		assert.NoError(t, err)
@@ -178,13 +178,12 @@ func TestGateway_Disconnect(t *testing.T) {
 		info := gw.GetInfo()
 		assert.NotEmpty(t, info.DataURI)
 
-		reply := gw.DisconnectAsync()
-		err = <-reply
-		assert.NoError(t, err)
+		reply := gw.Disconnect()
+		assert.NoError(t, reply)
 
 		info = gw.GetInfo()
-		assert.Equal(t, StateDisconnected, info.DataState)
-		assert.Equal(t, StateDisconnected, info.DiscoveryState)
+		assert.Equal(t, "disconnected", info.DataState)
+		assert.Equal(t, "disconnected", info.DiscoveryState)
 	})
 
 	t.Run("returns error when already disconnected", func(t *testing.T) {
@@ -193,10 +192,9 @@ func TestGateway_Disconnect(t *testing.T) {
 		gw := New(eui, discoveryURI)
 
 		info := gw.GetInfo()
-		assert.Equal(t, StateDisconnected, info.DataState)
+		assert.Equal(t, "disconnected", info.DataState)
 
-		reply := gw.DisconnectAsync()
-		err := <-reply
+		err := gw.Disconnect()
 		assert.Error(t, err)
 		assert.Equal(t, "already disconnected", err.Error())
 	})
@@ -218,8 +216,7 @@ func TestGateway_Disconnect(t *testing.T) {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				reply := gw.DisconnectAsync()
-				err := <-reply
+				err := gw.Disconnect()
 				if err == nil {
 					mu.Lock()
 					successCount++
@@ -232,7 +229,7 @@ func TestGateway_Disconnect(t *testing.T) {
 		// Only one should succeed
 		assert.Equal(t, 1, successCount)
 		info := gw.GetInfo()
-		assert.Equal(t, StateDisconnected, info.DiscoveryState)
+		assert.Equal(t, "disconnected", info.DiscoveryState)
 	})
 }
 
@@ -252,15 +249,14 @@ func TestGateway_StateTransitions(t *testing.T) {
 		assert.NoError(t, err)
 
 		info = gw.GetInfo()
-		assert.NotEmpty(t, info.DataURI)
+		assert.Equal(t, "disconnected", info.DiscoveryState)
 
 		// Disconnect
-		reply := gw.DisconnectAsync()
-		err = <-reply
+		err = gw.Disconnect()
 		assert.NoError(t, err)
 
 		info = gw.GetInfo()
-		assert.Equal(t, StateDisconnected, info.DiscoveryState)
+		assert.Equal(t, "disconnected", info.DiscoveryState)
 
 		// Reconnect
 		err = gw.Connect()
@@ -292,8 +288,7 @@ func TestGateway_StateTransitions(t *testing.T) {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				reply := gw.DisconnectAsync()
-				<-reply // ignore errors
+				gw.Disconnect() // ignore errors
 			}()
 		}
 
@@ -301,7 +296,7 @@ func TestGateway_StateTransitions(t *testing.T) {
 
 		// Final state should be either connected or disconnected (no corruption)
 		info := gw.GetInfo()
-		assert.True(t, info.DiscoveryState == StateDisconnected) // Discovery always disconnected after getting data URI
+		assert.True(t, info.DiscoveryState == "disconnected") // Discovery always disconnected after getting data URI
 	})
 }
 
@@ -339,8 +334,7 @@ func TestGateway_ConcurrentOperations(t *testing.T) {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				reply := gw.DisconnectAsync()
-				<-reply // ignore errors
+				gw.Disconnect() // ignore errors
 			}()
 		}
 

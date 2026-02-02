@@ -23,9 +23,9 @@ type Gateway struct {
 type GatewayInfo struct {
 	EUI            lorawan.EUI64 `json:"eui"`
 	DiscoveryURI   string        `json:"discoveryUri"`
-	DiscoveryState State         `json:"discoveryState"`
+	DiscoveryState string        `json:"discoveryState"`
 	DataURI        string        `json:"dataUri"`
-	DataState      State         `json:"dataState"`
+	DataState      string        `json:"dataState"`
 }
 
 func New(EUI lorawan.EUI64, discoveryURI string) *Gateway {
@@ -45,53 +45,50 @@ func (g *Gateway) GetInfo() GatewayInfo {
 	return GatewayInfo{
 		EUI:            g.eui,
 		DiscoveryURI:   g.discoveryURI,
-		DiscoveryState: g.discoveryState,
+		DiscoveryState: g.discoveryState.String(),
 		DataURI:        g.dataURI,
-		DataState:      g.dataState,
+		DataState:      g.dataState.String(),
 	}
 }
 
 func (g *Gateway) Connect() error {
 	g.mu.RLock()
+
+	// Check if already connected to LNS Data
 	if g.dataState == StateConnected {
-		// A gateway is successfully connected if connected to LNS Data
 		g.mu.RUnlock()
 		return errors.New("already connected")
-	} else if g.discoveryState != StateDisconnected || g.dataState != StateDisconnected {
-		// Proceed only if disconnected from both LNS Data and LNS Discovery
+	}
+
+	// Check if connection is in progress
+	if g.discoveryState == StateConnecting || g.dataState == StateConnecting {
 		g.mu.RUnlock()
 		return errors.New("already connecting")
 	}
 	g.mu.RUnlock()
 
+	// Get LNS Data URI from LNS Discovery
 	uri, discoveryErr := g.lnsDiscovery()
 	if discoveryErr != nil {
 		return discoveryErr
 	}
-
 	g.mu.Lock()
 	g.dataURI = uri
 	g.mu.Unlock()
 
+	// Connect to LNS Data
 	dataErr := g.lnsDataConnect()
 
 	return dataErr
 }
 
-func (g *Gateway) DisconnectAsync() <-chan error {
-	g.mu.Lock()
-	defer g.mu.Unlock()
-
-	reply := make(chan error, 1)
-
+func (g *Gateway) Disconnect() error {
+	g.mu.RLock()
 	if g.discoveryState == StateDisconnected && g.dataState == StateDisconnected {
-		reply <- errors.New("already disconnected")
-		return reply
+		g.mu.RUnlock()
+		return errors.New("already disconnected")
 	}
+	g.mu.RUnlock()
 
-	// TODO
-	// - disconnect LNS Data
-
-	reply <- errors.New("not yet implemented")
-	return reply
+	return g.lnsDataDisconnect()
 }

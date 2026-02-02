@@ -1,7 +1,6 @@
 package api
 
 import (
-	"errors"
 	"net/http"
 
 	"github.com/brocaar/lorawan"
@@ -111,15 +110,10 @@ func connectGateway(c *gin.Context) {
 func disconnectGateway(c *gin.Context) {
 	gw := c.MustGet("gateway").(*gateway.Gateway)
 
-	reply := gw.DisconnectAsync()
+	err := gw.Disconnect()
 
-	if err := waitForResult(reply); err != nil {
-		// Check if it's a timeout error
-		if errors.Is(err, ErrTimeout) {
-			c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
-		} else {
-			c.IndentedJSON(http.StatusBadRequest, gin.H{"message": err.Error()})
-		}
+	if err != nil {
+		c.IndentedJSON(http.StatusBadRequest, gin.H{"message": err.Error()})
 		return
 	}
 

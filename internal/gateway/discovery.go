@@ -44,9 +44,17 @@ func (g *Gateway) lnsDiscovery() (string, error) {
 
 	// LNS Discovery connection not needed anymore when exiting this function
 	defer func() {
+		g.mu.Lock()
+		g.discoveryState = StateDisconnecting
+		g.mu.Unlock()
+
 		err := conn.Close()
 		if err != nil {
+			g.mu.Lock()
+			g.discoveryState = StateDisconnectionError
+			g.mu.Unlock()
 			log.Printf("[%s] discovery disconnection error: %s", g.eui, err)
+			return
 		}
 		log.Printf("[%s] discovery disconnected", g.eui)
 		g.mu.Lock()

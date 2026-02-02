@@ -106,7 +106,7 @@ func TestLnsDiscovery_Success(t *testing.T) {
 
 	// Verify state is back to disconnected after discovery
 	info := gw.GetInfo()
-	assert.Equal(t, StateDisconnected, info.DiscoveryState)
+	assert.Equal(t, "disconnected", info.DiscoveryState)
 }
 
 func TestLnsDiscovery_ConnectionError(t *testing.T) {
@@ -121,7 +121,7 @@ func TestLnsDiscovery_ConnectionError(t *testing.T) {
 
 	// Verify state is disconnected after error
 	info := gw.GetInfo()
-	assert.Equal(t, StateDisconnected, info.DiscoveryState)
+	assert.Equal(t, "disconnected", info.DiscoveryState)
 }
 
 func TestLnsDiscovery_Timeout(t *testing.T) {
@@ -147,7 +147,7 @@ func TestLnsDiscovery_Timeout(t *testing.T) {
 
 	// Verify state is disconnected after timeout
 	info := gw.GetInfo()
-	assert.Equal(t, StateDisconnected, info.DiscoveryState)
+	assert.Equal(t, "disconnected", info.DiscoveryState)
 }
 
 func TestLnsDiscovery_InvalidJSON(t *testing.T) {
@@ -167,7 +167,7 @@ func TestLnsDiscovery_InvalidJSON(t *testing.T) {
 
 	// Verify state is disconnected after error
 	info := gw.GetInfo()
-	assert.Equal(t, StateDisconnected, info.DiscoveryState)
+	assert.Equal(t, "disconnected", info.DiscoveryState)
 }
 
 func TestLnsDiscovery_ImmediateClose(t *testing.T) {
@@ -271,7 +271,7 @@ func TestLnsDiscovery_StateTransitions(t *testing.T) {
 
 	// Initial state
 	info := gw.GetInfo()
-	assert.Equal(t, StateDisconnected, info.DiscoveryState)
+	assert.Equal(t, "disconnected", info.DiscoveryState)
 
 	// Start discovery in goroutine to observe state changes
 	done := make(chan struct{})
@@ -284,7 +284,7 @@ func TestLnsDiscovery_StateTransitions(t *testing.T) {
 				return
 			default:
 				info := gw.GetInfo()
-				if info.DiscoveryState == StateConnecting {
+				if info.DiscoveryState == "connecting" {
 					observedConnecting = true
 				}
 				time.Sleep(5 * time.Millisecond)
@@ -303,7 +303,7 @@ func TestLnsDiscovery_StateTransitions(t *testing.T) {
 
 	// Final state should be disconnected
 	info = gw.GetInfo()
-	assert.Equal(t, StateDisconnected, info.DiscoveryState)
+	assert.Equal(t, "disconnected", info.DiscoveryState)
 }
 
 func TestLnsDiscovery_ConcurrentCalls(t *testing.T) {
@@ -341,7 +341,7 @@ func TestLnsDiscovery_ConcurrentCalls(t *testing.T) {
 
 	// Final state should be disconnected
 	info := gw.GetInfo()
-	assert.Equal(t, StateDisconnected, info.DiscoveryState)
+	assert.Equal(t, "disconnected", info.DiscoveryState)
 }
 
 func TestDiscoveryResponse_Structure(t *testing.T) {

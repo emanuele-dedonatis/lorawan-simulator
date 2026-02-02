@@ -6,6 +6,8 @@ const (
 	StateDisconnected State = iota
 	StateConnecting
 	StateConnected
+	StateDisconnecting
+	StateDisconnectionError
 )
 
 func (s State) String() string {
@@ -16,6 +18,10 @@ func (s State) String() string {
 		return "connecting"
 	case StateConnected:
 		return "connected"
+	case StateDisconnecting:
+		return "disconnecting"
+	case StateDisconnectionError:
+		return "disconnection error"
 	default:
 		return "unknown"
 	}
