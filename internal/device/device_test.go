@@ -36,7 +36,7 @@ func TestNew(t *testing.T) {
 		joinEUI1 := lorawan.EUI64{0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18}
 		appKey1 := lorawan.AES128Key{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10}
 		devNonce1 := lorawan.DevNonce(0)
-		
+
 		devEUI2 := lorawan.EUI64{0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28}
 		joinEUI2 := lorawan.EUI64{0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38}
 		appKey2 := lorawan.AES128Key{0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d, 0x1e, 0x1f, 0x20}
@@ -253,7 +253,7 @@ func TestDevice_JoinAccept(t *testing.T) {
 
 		// Create a JoinAccept payload with wrong appKey for MIC
 		wrongAppKey := lorawan.AES128Key{0xff, 0xee, 0xdd, 0xcc, 0xbb, 0xaa, 0x99, 0x88, 0x77, 0x66, 0x55, 0x44, 0x33, 0x22, 0x11, 0x00}
-		
+
 		joinAccept := lorawan.JoinAcceptPayload{
 			JoinNonce: lorawan.JoinNonce(0x123456),
 			HomeNetID: lorawan.NetID{0x00, 0x00, 0x01},
@@ -339,7 +339,7 @@ func TestDeriveSessionKey(t *testing.T) {
 		nwkSKey, err := deriveSessionKey(0x01, appKey, joinNonce, netID, devNonce)
 		assert.NoError(t, err)
 		assert.NotEqual(t, lorawan.AES128Key{}, nwkSKey)
-		
+
 		// Verify it's deterministic - same inputs produce same output
 		nwkSKey2, err := deriveSessionKey(0x01, appKey, joinNonce, netID, devNonce)
 		assert.NoError(t, err)
@@ -355,7 +355,7 @@ func TestDeriveSessionKey(t *testing.T) {
 		appSKey, err := deriveSessionKey(0x02, appKey, joinNonce, netID, devNonce)
 		assert.NoError(t, err)
 		assert.NotEqual(t, lorawan.AES128Key{}, appSKey)
-		
+
 		// Verify it's deterministic
 		appSKey2, err := deriveSessionKey(0x02, appKey, joinNonce, netID, devNonce)
 		assert.NoError(t, err)
@@ -407,3 +407,124 @@ func TestDeriveSessionKey(t *testing.T) {
 	})
 }
 
+func TestDevice_Uplink(t *testing.T) {
+	t.Run("creates valid uplink with device DevAddr", func(t *testing.T) {
+		devEUI := lorawan.EUI64{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}
+		joinEUI := lorawan.EUI64{0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18}
+		appKey := lorawan.AES128Key{0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff}
+		devNonce := lorawan.DevNonce(100)
+		device := newTestDevice(devEUI, joinEUI, appKey, devNonce)
+
+		// Set device as joined with DevAddr and session keys
+		device.DevAddr = lorawan.DevAddr{0x00, 0xdf, 0xb2, 0x28}
+		device.AppSKey = lorawan.AES128Key{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10}
+		device.NwkSKey = lorawan.AES128Key{0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d, 0x1e, 0x1f, 0x20}
+		device.FCntUp = 0
+
+		phy, err := device.Uplink()
+		assert.NoError(t, err)
+
+		// Verify MHDR
+		assert.Equal(t, lorawan.ConfirmedDataUp, phy.MHDR.MType)
+		assert.Equal(t, lorawan.LoRaWANR1, phy.MHDR.Major)
+
+		// Verify MACPayload
+		macPL, ok := phy.MACPayload.(*lorawan.MACPayload)
+		assert.True(t, ok)
+		assert.Equal(t, device.DevAddr, macPL.FHDR.DevAddr)
+		assert.Equal(t, uint32(0), macPL.FHDR.FCnt)
+		assert.NotNil(t, macPL.FPort)
+		assert.Equal(t, uint8(1), *macPL.FPort)
+
+		// Verify MIC is set
+		assert.NotEqual(t, [4]byte{0, 0, 0, 0}, phy.MIC)
+
+		// Verify FCntUp was incremented
+		info := device.GetInfo()
+		assert.Equal(t, uint32(1), info.FCntUp)
+	})
+
+	t.Run("increments FCntUp on each uplink", func(t *testing.T) {
+		devEUI := lorawan.EUI64{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}
+		joinEUI := lorawan.EUI64{0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18}
+		appKey := lorawan.AES128Key{0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff}
+		devNonce := lorawan.DevNonce(100)
+		device := newTestDevice(devEUI, joinEUI, appKey, devNonce)
+
+		// Set device as joined
+		device.DevAddr = lorawan.DevAddr{0x01, 0x02, 0x03, 0x04}
+		device.AppSKey = lorawan.AES128Key{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10}
+		device.NwkSKey = lorawan.AES128Key{0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d, 0x1e, 0x1f, 0x20}
+
+		// First uplink
+		phy1, err := device.Uplink()
+		assert.NoError(t, err)
+		macPL1, _ := phy1.MACPayload.(*lorawan.MACPayload)
+		assert.Equal(t, uint32(0), macPL1.FHDR.FCnt)
+
+		// Second uplink should have incremented FCnt
+		phy2, err := device.Uplink()
+		assert.NoError(t, err)
+		macPL2, _ := phy2.MACPayload.(*lorawan.MACPayload)
+		assert.Equal(t, uint32(1), macPL2.FHDR.FCnt)
+
+		// Verify device's FCntUp
+		info := device.GetInfo()
+		assert.Equal(t, uint32(2), info.FCntUp)
+	})
+
+	t.Run("encrypts FRMPayload with AppSKey", func(t *testing.T) {
+		devEUI := lorawan.EUI64{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}
+		joinEUI := lorawan.EUI64{0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18}
+		appKey := lorawan.AES128Key{0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff}
+		devNonce := lorawan.DevNonce(100)
+		device := newTestDevice(devEUI, joinEUI, appKey, devNonce)
+
+		// Set device as joined
+		device.DevAddr = lorawan.DevAddr{0x01, 0x02, 0x03, 0x04}
+		device.AppSKey = lorawan.AES128Key{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10}
+		device.NwkSKey = lorawan.AES128Key{0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d, 0x1e, 0x1f, 0x20}
+
+		phy, err := device.Uplink()
+		assert.NoError(t, err)
+
+		// FRMPayload should be encrypted (not [1, 2, 3, 4])
+		macPL, _ := phy.MACPayload.(*lorawan.MACPayload)
+		dataPayload, ok := macPL.FRMPayload[0].(*lorawan.DataPayload)
+		assert.True(t, ok)
+
+		// The encrypted payload should be different from the original [1, 2, 3, 4]
+		assert.NotEqual(t, []byte{1, 2, 3, 4}, dataPayload.Bytes)
+	})
+
+	t.Run("concurrent uplinks increment FCntUp correctly", func(t *testing.T) {
+		devEUI := lorawan.EUI64{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}
+		joinEUI := lorawan.EUI64{0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18}
+		appKey := lorawan.AES128Key{0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff}
+		devNonce := lorawan.DevNonce(100)
+		device := newTestDevice(devEUI, joinEUI, appKey, devNonce)
+
+		// Set device as joined
+		device.DevAddr = lorawan.DevAddr{0x01, 0x02, 0x03, 0x04}
+		device.AppSKey = lorawan.AES128Key{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10}
+		device.NwkSKey = lorawan.AES128Key{0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d, 0x1e, 0x1f, 0x20}
+
+		const numUplinks = 10
+		var wg sync.WaitGroup
+		wg.Add(numUplinks)
+
+		for i := 0; i < numUplinks; i++ {
+			go func() {
+				defer wg.Done()
+				_, err := device.Uplink()
+				assert.NoError(t, err)
+			}()
+		}
+
+		wg.Wait()
+
+		// FCntUp should have been incremented exactly numUplinks times
+		info := device.GetInfo()
+		assert.Equal(t, uint32(numUplinks), info.FCntUp)
+	})
+}

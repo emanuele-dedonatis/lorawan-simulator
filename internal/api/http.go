@@ -81,6 +81,9 @@ func Init(p *networkserver.Pool) {
 
 			// POST /network-servers/:name/devices/:eui/join
 			dev.POST("/join", sendDeviceJoinRequest)
+
+			// POST /network-servers/:name/devices/:eui/uplink
+			dev.POST("/uplink", sendDeviceUplink)
 		}
 	}
 

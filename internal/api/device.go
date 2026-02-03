@@ -118,3 +118,17 @@ func sendDeviceJoinRequest(c *gin.Context) {
 
 	c.IndentedJSON(http.StatusNoContent, nil)
 }
+
+func sendDeviceUplink(c *gin.Context) {
+	ns := c.MustGet("networkServer").(*networkserver.NetworkServer)
+	dev := c.MustGet("device").(*device.Device)
+
+	err := ns.SendUplink(dev.GetInfo().DevEUI)
+
+	if err != nil {
+		c.IndentedJSON(http.StatusBadRequest, gin.H{"message": err.Error()})
+		return
+	}
+
+	c.IndentedJSON(http.StatusNoContent, nil)
+}

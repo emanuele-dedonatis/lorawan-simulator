@@ -107,7 +107,7 @@ func (g *Gateway) Forward(frame lorawan.PHYPayload) error {
 			return errors.New("invalid MHDR")
 		}
 
-		// Convert MIC to signed int32 (as expected by ChirpStack Basic Station)
+		// Convert MIC to signed int32
 		mic := int32(binary.LittleEndian.Uint32(frame.MIC[:]))
 
 		// TODO: dynamic DR, freq and upinfo
@@ -119,12 +119,65 @@ func (g *Gateway) Forward(frame lorawan.PHYPayload) error {
 			mic,
 		)
 		return g.send(updfMsg)
-	case lorawan.UnconfirmedDataUp:
-		// TODO: implement unconfirmed uplink
-		return errors.New("unconfirmed uplink not implemented")
-	case lorawan.ConfirmedDataUp:
-		// TODO: implement confirmed uplink
-		return errors.New("confirmed uplink not implemented")
+	case lorawan.UnconfirmedDataUp, lorawan.ConfirmedDataUp:
+		// Type assert MACPayload to lorawan.MACPayload
+		macPL, ok := frame.MACPayload.(*lorawan.MACPayload)
+		if !ok {
+			return errors.New("invalid MAC payload")
+		}
+
+		// Convert MHDR to number
+		mhdr, err := frame.MHDR.MarshalBinary()
+		if err != nil {
+			return errors.New("invalid MHDR")
+		}
+
+		// Convert DevAddr to signed int32
+		devaddr := int32(binary.BigEndian.Uint32(macPL.FHDR.DevAddr[:]))
+
+		// Convert FCtrl struct to byte
+		fctrlByte, err := macPL.FHDR.FCtrl.MarshalBinary()
+		if err != nil {
+			return fmt.Errorf("failed to marshal FCtrl: %w", err)
+		}
+
+		// Convert MIC to signed int32
+		mic := int32(binary.LittleEndian.Uint32(frame.MIC[:]))
+
+		// Encode FOpts as hex string
+		var fOptsHex string
+		if len(macPL.FHDR.FOpts) > 0 {
+			var fOptsBytes []byte
+			for _, opt := range macPL.FHDR.FOpts {
+				optBytes, err := opt.MarshalBinary()
+				if err != nil {
+					return fmt.Errorf("failed to marshal FOpts: %w", err)
+				}
+				fOptsBytes = append(fOptsBytes, optBytes...)
+			}
+			fOptsHex = hex.EncodeToString(fOptsBytes)
+		}
+
+		// Encode FRMPayload as hex string
+		var frmPayloadHex string
+		if len(macPL.FRMPayload) > 0 {
+			if dataPayload, ok := macPL.FRMPayload[0].(*lorawan.DataPayload); ok {
+				frmPayloadHex = hex.EncodeToString(dataPayload.Bytes)
+			}
+		}
+
+		// TODO: dynamic DR, freq and upinfo
+		updfMsg := fmt.Sprintf(`{"msgtype":"updf","MHdr":%d,"DevAddr":%d,"FCtrl":%d,"FCnt":%d,"FOpts":"%s","FPort":%d,"FRMPayload":"%s","MIC":%d,"DR":5,"Freq":868300000,"upinfo":{"rctx":0,"xtime":26740123065958450,"gpstime":0,"rssi":-50,"snr":9}}`,
+			mhdr[0],
+			devaddr,
+			fctrlByte[0],
+			macPL.FHDR.FCnt,
+			fOptsHex,
+			*macPL.FPort,
+			frmPayloadHex,
+			mic,
+		)
+		return g.send(updfMsg)
 	default:
 		return errors.New("unsupported uplink message type")
 	}

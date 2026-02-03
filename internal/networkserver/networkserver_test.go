@@ -481,3 +481,86 @@ func TestNetworkServer_ForwardUplink(t *testing.T) {
 		})
 	})
 }
+
+func TestNetworkServer_SendUplink(t *testing.T) {
+	t.Run("triggers uplink for existing device", func(t *testing.T) {
+		ns := newTestNetworkServer("test-server")
+
+		// Add a device
+		devEUI := lorawan.EUI64{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}
+		joinEUI := lorawan.EUI64{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}
+		appKey := lorawan.AES128Key{0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f}
+		devNonce := lorawan.DevNonce(100)
+		dev, err := ns.AddDevice(devEUI, joinEUI, appKey, devNonce)
+		assert.NoError(t, err)
+		assert.NotNil(t, dev)
+
+		// Set DevAddr and session keys (simulating joined device)
+		dev.DevAddr = lorawan.DevAddr{0x01, 0x02, 0x03, 0x04}
+		dev.NwkSKey = lorawan.AES128Key{0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f}
+		dev.AppSKey = lorawan.AES128Key{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f}
+		dev.FCntUp = 0
+
+		// Call SendUplink should not panic
+		err = ns.SendUplink(devEUI)
+		assert.NoError(t, err)
+
+		// Verify FCnt incremented
+		assert.Equal(t, uint32(1), dev.FCntUp)
+	})
+
+	t.Run("returns error for non-existing device", func(t *testing.T) {
+		ns := newTestNetworkServer("test-server")
+
+		// Try to send uplink for device that doesn't exist
+		devEUI := lorawan.EUI64{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}
+		err := ns.SendUplink(devEUI)
+
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "not found")
+	})
+
+	t.Run("handles device without DevAddr", func(t *testing.T) {
+		ns := newTestNetworkServer("test-server")
+
+		// Add a device but don't set DevAddr (not joined)
+		devEUI := lorawan.EUI64{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}
+		joinEUI := lorawan.EUI64{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}
+		appKey := lorawan.AES128Key{0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f}
+		devNonce := lorawan.DevNonce(100)
+		dev, err := ns.AddDevice(devEUI, joinEUI, appKey, devNonce)
+		assert.NoError(t, err)
+		assert.NotNil(t, dev)
+
+		// Device has zero DevAddr (not joined)
+		// This should still work but the uplink will have empty DevAddr
+		err = ns.SendUplink(devEUI)
+		assert.NoError(t, err)
+	})
+
+	t.Run("increments FCnt correctly across multiple uplinks", func(t *testing.T) {
+		ns := newTestNetworkServer("test-server")
+
+		// Add a device
+		devEUI := lorawan.EUI64{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}
+		joinEUI := lorawan.EUI64{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}
+		appKey := lorawan.AES128Key{0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f}
+		devNonce := lorawan.DevNonce(100)
+		dev, err := ns.AddDevice(devEUI, joinEUI, appKey, devNonce)
+		assert.NoError(t, err)
+
+		// Set DevAddr and session keys
+		dev.DevAddr = lorawan.DevAddr{0x01, 0x02, 0x03, 0x04}
+		dev.NwkSKey = lorawan.AES128Key{0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f}
+		dev.AppSKey = lorawan.AES128Key{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f}
+
+		// Send multiple uplinks
+		for i := uint32(0); i < 5; i++ {
+			err := ns.SendUplink(devEUI)
+			assert.NoError(t, err)
+			assert.Equal(t, i+1, dev.FCntUp)
+		}
+
+		assert.Equal(t, uint32(5), dev.FCntUp)
+	})
+}

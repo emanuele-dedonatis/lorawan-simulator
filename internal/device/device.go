@@ -82,7 +82,12 @@ func (d *Device) JoinAccept(frame lorawan.PHYPayload) error {
 		log.Printf("[%s] MIC error %v", d.DevEUI, err)
 		return err
 	}
-	if ok {
+	if !ok {
+		// Join Accept is for another device
+		log.Printf("[%s] invalid MIC", d.DevEUI)
+		return errors.New("invalid MIC")
+	} else {
+		// Join Accept is for this device
 		joinAccept, ok := frame.MACPayload.(*lorawan.JoinAcceptPayload)
 		if !ok {
 			log.Printf("[%s] invalid MAC payload for data downlink", d.DevEUI)
@@ -139,13 +144,62 @@ func (d *Device) JoinRequest() (lorawan.PHYPayload, error) {
 			DevNonce: d.DevNonce,
 		},
 	}
+
 	// Increment DevNonce for next Join Request
-	d.DevNonce = d.DevNonce + 1
-	// Compute MIC
+	d.DevNonce++
+
+	// Prepare AppKey for MIC
 	appkey := d.AppKey
+
 	d.mu.Unlock()
-	// TODO: crypto task, use goroutine
+
 	if err := phy.SetUplinkJoinMIC(appkey); err != nil {
+		return lorawan.PHYPayload{}, err
+	}
+
+	d.broadcast(phy)
+
+	return phy, nil
+}
+
+func (d *Device) Uplink() (lorawan.PHYPayload, error) {
+	fPort := uint8(1)
+
+	d.mu.Lock()
+	phy := lorawan.PHYPayload{
+		MHDR: lorawan.MHDR{
+			MType: lorawan.ConfirmedDataUp,
+			Major: lorawan.LoRaWANR1,
+		},
+		MACPayload: &lorawan.MACPayload{
+			FHDR: lorawan.FHDR{
+				DevAddr: d.DevAddr, // Use the actual DevAddr from the device
+				FCtrl: lorawan.FCtrl{
+					ADR:       false,
+					ADRACKReq: false,
+					ACK:       false,
+				},
+				FCnt: d.FCntUp,
+			},
+			FPort:      &fPort,
+			FRMPayload: []lorawan.Payload{&lorawan.DataPayload{Bytes: []byte{1, 2, 3, 4}}},
+		},
+	}
+
+	// Increment FCntup
+	d.FCntUp++
+
+	// Prepare session keys for encryption and MIC
+	appskey := d.AppSKey
+	nwkskey := d.NwkSKey
+
+	d.mu.Unlock()
+
+	if err := phy.EncryptFRMPayload(appskey); err != nil {
+		return lorawan.PHYPayload{}, err
+	}
+
+	if err := phy.SetUplinkDataMIC(lorawan.LoRaWAN1_0, 0, 0, 0, nwkskey, lorawan.AES128Key{}); err != nil {
 		return lorawan.PHYPayload{}, err
 	}
 
@@ -161,7 +215,15 @@ func (d *Device) broadcast(phy lorawan.PHYPayload) {
 	d.mu.RUnlock()
 
 	if broadcastCh != nil {
-		log.Printf("[%s] broadcasting uplink", d.DevEUI)
+		// Marshal PHYPayload to bytes and encode as hex
+		phyBytes, err := phy.MarshalBinary()
+		if err != nil {
+			log.Printf("[%s] failed to marshal PHYPayload: %v", d.DevEUI, err)
+			return
+		}
+
+		log.Printf("[%s] broadcasting uplink: %x", d.DevEUI, phyBytes)
+
 		go func() {
 			broadcastCh <- phy
 		}()

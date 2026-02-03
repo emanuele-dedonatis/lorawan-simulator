@@ -104,9 +104,14 @@ func (ns *NetworkServer) ForwardUplink(uplink lorawan.PHYPayload) error {
 	defer ns.mu.RUnlock()
 
 	// TODO: filter by location
-	for _, gateway := range ns.gateways {
-		log.Printf("[%s] propagating uplink to gateway %s", ns.name, gateway.GetInfo().EUI)
-		go gateway.Forward(uplink)
+	for _, gw := range ns.gateways {
+		log.Printf("[%s] propagating uplink to gateway %s", ns.name, gw.GetInfo().EUI)
+		go func(gw *gateway.Gateway) {
+			err := gw.Forward(uplink)
+			if err != nil {
+				log.Printf("[%s] gateway %s error: %v", ns.name, gw.GetInfo().EUI, err)
+			}
+		}(gw)
 	}
 
 	return nil
@@ -175,22 +180,32 @@ func (ns *NetworkServer) ForwardDownlink(downlink lorawan.PHYPayload) error {
 
 		ns.mu.RLock()
 		defer ns.mu.RUnlock()
-		for _, device := range ns.devices {
-			// TODO: filter also by location
-			if device.DevAddr == devAddr {
+		for _, dev := range ns.devices {
+			// TODO: filter also by location and rxw
+			if dev.DevAddr == devAddr {
 				// Propagate only to devices with same DevAddr
-				log.Printf("[%s] propagating downlink to device %s (DevAddr: %s)", ns.name, device.GetInfo().DevEUI, devAddr)
-				go device.Downlink(downlink)
+				log.Printf("[%s] propagating downlink to device %s (DevAddr: %s)", ns.name, dev.GetInfo().DevEUI, devAddr)
+				go func(dev *device.Device) {
+					err := dev.Downlink(downlink)
+					if err != nil {
+						log.Printf("[%s] device %s error: %v", ns.name, dev.GetInfo().DevEUI, err)
+					}
+				}(dev)
 			}
 		}
 	} else {
 		// Join Accept
 		ns.mu.RLock()
 		defer ns.mu.RUnlock()
-		for _, device := range ns.devices {
-			// TODO: filter also by location
-			log.Printf("[%s] propagating downlink to device %s", ns.name, device.GetInfo().DevEUI)
-			go device.JoinAccept(downlink)
+		for _, dev := range ns.devices {
+			// TODO: filter also by location and rxw
+			log.Printf("[%s] propagating downlink to device %s", ns.name, dev.GetInfo().DevEUI)
+			go func(dev *device.Device) {
+				err := dev.JoinAccept(downlink)
+				if err != nil {
+					log.Printf("[%s] device %s error: %v", ns.name, dev.GetInfo().DevEUI, err)
+				}
+			}(dev)
 		}
 	}
 
@@ -208,6 +223,24 @@ func (ns *NetworkServer) SendJoinRequest(DevEUI lorawan.EUI64) error {
 
 	// Prepare JoinRequest frame
 	_, err := device.JoinRequest()
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (ns *NetworkServer) SendUplink(DevEUI lorawan.EUI64) error {
+	ns.mu.Lock()
+	defer ns.mu.Unlock()
+
+	device, exists := ns.devices[DevEUI]
+	if !exists {
+		return errors.New("device not found")
+	}
+
+	// Prepare Uplink frame
+	_, err := device.Uplink()
 	if err != nil {
 		return err
 	}
