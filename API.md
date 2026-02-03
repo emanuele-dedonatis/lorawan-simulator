@@ -36,11 +36,38 @@ See [README.md](README.md) for detailed installation and configuration instructi
 
 ## Table of Contents
 
+- [Health Check](#health-check)
 - [Network Servers](#network-servers)
 - [Gateways](#gateways)
 - [Devices](#devices)
 - [Error Responses](#error-responses)
 - [Examples](#examples)
+
+---
+
+## Health Check
+
+### Get Health Status
+
+Simple endpoint to verify the API is running and responsive.
+
+```http
+GET /health
+```
+
+**Response:** `200 OK`
+
+```json
+{
+  "status": "ok"
+}
+```
+
+**Use Cases:**
+- Docker/Kubernetes health checks
+- Load balancer health probes
+- Monitoring systems
+- Uptime checks
 
 ---
 

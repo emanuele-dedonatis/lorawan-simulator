@@ -21,6 +21,9 @@ func Init(p *networkserver.Pool) {
 	// Add timeout middleware to all routes
 	router.Use(timeoutMiddleware(apiTimeout))
 
+	// GET /health - Health check endpoint
+	router.GET("/health", healthCheck)
+
 	// GET /network-servers
 	router.GET("/network-servers", getNetworkServers)
 
@@ -91,6 +94,13 @@ func Init(p *networkserver.Pool) {
 }
 
 var ErrTimeout = errors.New("operation timed out")
+
+// healthCheck returns a simple health status
+func healthCheck(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{
+		"status": "ok",
+	})
+}
 
 // timeoutMiddleware adds a timeout to all HTTP requests
 func timeoutMiddleware(timeout time.Duration) gin.HandlerFunc {

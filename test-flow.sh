@@ -90,6 +90,21 @@ echo "LoRaWAN Simulator - Basic Flow Test"
 echo "================================================"
 echo ""
 
+# Step 0: Health Check
+echo -e "${YELLOW}Step 0: Checking API Health...${NC}"
+response=$(curl -s -w "\n%{http_code}" -X GET "$BASE_URL/health")
+
+http_code=$(echo "$response" | tail -n1)
+body=$(echo "$response" | sed '$d')
+
+echo "Response: $body"
+check_status "$http_code" "Health Check"
+if [ $? -ne 0 ]; then
+    echo -e "${RED}API is not responding. Please ensure the simulator is running.${NC}"
+    exit 1
+fi
+echo ""
+
 # Step 1: Add Network Server
 echo -e "${YELLOW}Step 1: Adding Network Server 'localhost'...${NC}"
 response=$(curl -s -w "\n%{http_code}" -X POST "$BASE_URL/network-servers" \
