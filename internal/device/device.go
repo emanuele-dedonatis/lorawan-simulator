@@ -69,9 +69,14 @@ func (d *Device) GetInfo() DeviceInfo {
 }
 
 func (d *Device) JoinAccept(frame lorawan.PHYPayload) error {
-	log.Printf("[%s] received join accept", d.DevEUI)
+	phyBytes, err := frame.MarshalBinary()
+	if err != nil {
+		log.Printf("[%s] failed to marshal PHYPayload: %v", d.DevEUI, err)
+		return errors.New("invalid PHYPayload")
+	}
+	log.Printf("[%s] received join accept: %x", d.DevEUI, phyBytes)
 
-	err := frame.DecryptJoinAcceptPayload(d.AppKey)
+	err = frame.DecryptJoinAcceptPayload(d.AppKey)
 	if err != nil {
 		log.Printf("[%s] decryption error %v", d.DevEUI, err)
 		return err
@@ -125,9 +130,56 @@ func (d *Device) JoinAccept(frame lorawan.PHYPayload) error {
 }
 
 func (d *Device) Downlink(frame lorawan.PHYPayload) error {
-	// TODO: handle received downlink
-	log.Printf("[%s] received downlink", d.DevEUI)
+	phyBytes, err := frame.MarshalBinary()
+	if err != nil {
+		log.Printf("[%s] failed to marshal PHYPayload: %v", d.DevEUI, err)
+		return errors.New("invalid PHYPayload")
+	}
+	log.Printf("[%s] received downlink: %x", d.DevEUI, phyBytes)
 
+	ok, err := frame.ValidateDownlinkDataMIC(lorawan.LoRaWAN1_0, 0, d.NwkSKey)
+	if err != nil {
+		log.Printf("[%s] MIC error %v", d.DevEUI, err)
+		return err
+	}
+	if !ok {
+		log.Printf("[%s] invalid MIC", d.DevEUI)
+		return errors.New("invalid MIC")
+	} else {
+		if err := frame.DecodeFOptsToMACCommands(); err != nil {
+			log.Printf("[%s] MAC Commands decoding error %v", d.DevEUI, err)
+			return err
+		}
+
+		if err := frame.DecryptFRMPayload(d.AppSKey); err != nil {
+			log.Printf("[%s] FRMPaylod decription error %v", d.DevEUI, err)
+			return err
+		}
+
+		macPL, ok := frame.MACPayload.(*lorawan.MACPayload)
+		if !ok {
+			log.Printf("[%s] MACPayload expected", d.DevEUI)
+			return errors.New("MACPayload expected")
+		}
+
+		// Check if FRMPayload has content
+		if len(macPL.FRMPayload) > 0 {
+			pl, ok := macPL.FRMPayload[0].(*lorawan.DataPayload)
+			if !ok {
+				log.Printf("[%s] DataPayload expected", d.DevEUI)
+				return errors.New("DataPayload expected")
+			}
+
+			if macPL.FPort != nil {
+				log.Printf("[%s] downlink FCnt %d - FPort: %d - FRMPayload: %x", d.DevEUI, macPL.FHDR.FCnt, *macPL.FPort, pl.Bytes)
+			} else {
+				log.Printf("[%s] downlink FCnt %d - FRMPayload: %x", d.DevEUI, macPL.FHDR.FCnt, pl.Bytes)
+			}
+		} else {
+			// MAC-only message (no application payload)
+			log.Printf("[%s] downlink FCnt %d - MAC-only message (no FRMPayload)", d.DevEUI, macPL.FHDR.FCnt)
+		}
+	}
 	return nil
 }
 
@@ -215,13 +267,11 @@ func (d *Device) broadcast(phy lorawan.PHYPayload) {
 	d.mu.RUnlock()
 
 	if broadcastCh != nil {
-		// Marshal PHYPayload to bytes and encode as hex
 		phyBytes, err := phy.MarshalBinary()
 		if err != nil {
 			log.Printf("[%s] failed to marshal PHYPayload: %v", d.DevEUI, err)
 			return
 		}
-
 		log.Printf("[%s] broadcasting uplink: %x", d.DevEUI, phyBytes)
 
 		go func() {

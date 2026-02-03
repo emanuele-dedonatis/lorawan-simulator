@@ -528,3 +528,188 @@ func TestDevice_Uplink(t *testing.T) {
 		assert.Equal(t, uint32(numUplinks), info.FCntUp)
 	})
 }
+
+func TestDevice_Downlink(t *testing.T) {
+	t.Run("processes valid downlink with FRMPayload", func(t *testing.T) {
+		devEUI := lorawan.EUI64{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}
+		joinEUI := lorawan.EUI64{0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18}
+		appKey := lorawan.AES128Key{0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff}
+		devNonce := lorawan.DevNonce(100)
+		device := newTestDevice(devEUI, joinEUI, appKey, devNonce)
+
+		// Set device as joined
+		device.DevAddr = lorawan.DevAddr{0x01, 0x02, 0x03, 0x04}
+		device.NwkSKey = lorawan.AES128Key{0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f}
+		device.AppSKey = lorawan.AES128Key{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10}
+
+		// Create a downlink with FRMPayload
+		fPort := uint8(10)
+		phy := lorawan.PHYPayload{
+			MHDR: lorawan.MHDR{
+				MType: lorawan.UnconfirmedDataDown,
+				Major: lorawan.LoRaWANR1,
+			},
+			MACPayload: &lorawan.MACPayload{
+				FHDR: lorawan.FHDR{
+					DevAddr: device.DevAddr,
+					FCtrl: lorawan.FCtrl{
+						ADR:       false,
+						ADRACKReq: false,
+						ACK:       false,
+					},
+					FCnt: 5,
+				},
+				FPort:      &fPort,
+				FRMPayload: []lorawan.Payload{&lorawan.DataPayload{Bytes: []byte{0xaa, 0xbb, 0xcc, 0xdd}}},
+			},
+		}
+
+		// Encrypt and set MIC
+		err := phy.EncryptFRMPayload(device.AppSKey)
+		assert.NoError(t, err)
+
+		err = phy.SetDownlinkDataMIC(lorawan.LoRaWAN1_0, 0, device.NwkSKey)
+		assert.NoError(t, err)
+
+		// Process downlink
+		err = device.Downlink(phy)
+		assert.NoError(t, err)
+	})
+
+	t.Run("processes downlink with empty FRMPayload (MAC-only)", func(t *testing.T) {
+		devEUI := lorawan.EUI64{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}
+		joinEUI := lorawan.EUI64{0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18}
+		appKey := lorawan.AES128Key{0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff}
+		devNonce := lorawan.DevNonce(100)
+		device := newTestDevice(devEUI, joinEUI, appKey, devNonce)
+
+		// Set device as joined
+		device.DevAddr = lorawan.DevAddr{0x01, 0x02, 0x03, 0x04}
+		device.NwkSKey = lorawan.AES128Key{0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f}
+		device.AppSKey = lorawan.AES128Key{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10}
+
+		// Create a MAC-only downlink (no FRMPayload)
+		phy := lorawan.PHYPayload{
+			MHDR: lorawan.MHDR{
+				MType: lorawan.UnconfirmedDataDown,
+				Major: lorawan.LoRaWANR1,
+			},
+			MACPayload: &lorawan.MACPayload{
+				FHDR: lorawan.FHDR{
+					DevAddr: device.DevAddr,
+					FCtrl: lorawan.FCtrl{
+						ADR:       false,
+						ADRACKReq: false,
+						ACK:       false,
+					},
+					FCnt: 3,
+				},
+				FPort:      nil,
+				FRMPayload: []lorawan.Payload{}, // Empty payload
+			},
+		}
+
+		// Set MIC
+		err := phy.SetDownlinkDataMIC(lorawan.LoRaWAN1_0, 0, device.NwkSKey)
+		assert.NoError(t, err)
+
+		// Process downlink - should not panic
+		err = device.Downlink(phy)
+		assert.NoError(t, err)
+	})
+
+	t.Run("fails on invalid MIC", func(t *testing.T) {
+		devEUI := lorawan.EUI64{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}
+		joinEUI := lorawan.EUI64{0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18}
+		appKey := lorawan.AES128Key{0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff}
+		devNonce := lorawan.DevNonce(100)
+		device := newTestDevice(devEUI, joinEUI, appKey, devNonce)
+
+		// Set device as joined
+		device.DevAddr = lorawan.DevAddr{0x01, 0x02, 0x03, 0x04}
+		device.NwkSKey = lorawan.AES128Key{0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f}
+		device.AppSKey = lorawan.AES128Key{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10}
+
+		// Use wrong NwkSKey for MIC
+		wrongNwkSKey := lorawan.AES128Key{0xff, 0xee, 0xdd, 0xcc, 0xbb, 0xaa, 0x99, 0x88, 0x77, 0x66, 0x55, 0x44, 0x33, 0x22, 0x11, 0x00}
+
+		fPort := uint8(10)
+		phy := lorawan.PHYPayload{
+			MHDR: lorawan.MHDR{
+				MType: lorawan.UnconfirmedDataDown,
+				Major: lorawan.LoRaWANR1,
+			},
+			MACPayload: &lorawan.MACPayload{
+				FHDR: lorawan.FHDR{
+					DevAddr: device.DevAddr,
+					FCtrl: lorawan.FCtrl{
+						ADR:       false,
+						ADRACKReq: false,
+						ACK:       false,
+					},
+					FCnt: 2,
+				},
+				FPort:      &fPort,
+				FRMPayload: []lorawan.Payload{&lorawan.DataPayload{Bytes: []byte{0x11, 0x22}}},
+			},
+		}
+
+		// Encrypt with correct key but set MIC with wrong key
+		err := phy.EncryptFRMPayload(device.AppSKey)
+		assert.NoError(t, err)
+
+		err = phy.SetDownlinkDataMIC(lorawan.LoRaWAN1_0, 0, wrongNwkSKey)
+		assert.NoError(t, err)
+
+		// Process downlink - should fail MIC validation
+		err = device.Downlink(phy)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "invalid MIC")
+	})
+
+	t.Run("handles ConfirmedDataDown same as UnconfirmedDataDown", func(t *testing.T) {
+		devEUI := lorawan.EUI64{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}
+		joinEUI := lorawan.EUI64{0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18}
+		appKey := lorawan.AES128Key{0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff}
+		devNonce := lorawan.DevNonce(100)
+		device := newTestDevice(devEUI, joinEUI, appKey, devNonce)
+
+		// Set device as joined
+		device.DevAddr = lorawan.DevAddr{0x01, 0x02, 0x03, 0x04}
+		device.NwkSKey = lorawan.AES128Key{0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f}
+		device.AppSKey = lorawan.AES128Key{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10}
+
+		// Create a ConfirmedDataDown
+		fPort := uint8(10)
+		phy := lorawan.PHYPayload{
+			MHDR: lorawan.MHDR{
+				MType: lorawan.ConfirmedDataDown,
+				Major: lorawan.LoRaWANR1,
+			},
+			MACPayload: &lorawan.MACPayload{
+				FHDR: lorawan.FHDR{
+					DevAddr: device.DevAddr,
+					FCtrl: lorawan.FCtrl{
+						ADR:       false,
+						ADRACKReq: false,
+						ACK:       true, // Confirmed downlink
+					},
+					FCnt: 7,
+				},
+				FPort:      &fPort,
+				FRMPayload: []lorawan.Payload{&lorawan.DataPayload{Bytes: []byte{0x55, 0x66}}},
+			},
+		}
+
+		// Encrypt and set MIC
+		err := phy.EncryptFRMPayload(device.AppSKey)
+		assert.NoError(t, err)
+
+		err = phy.SetDownlinkDataMIC(lorawan.LoRaWAN1_0, 0, device.NwkSKey)
+		assert.NoError(t, err)
+
+		// Process downlink
+		err = device.Downlink(phy)
+		assert.NoError(t, err)
+	})
+}
