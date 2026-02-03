@@ -1,6 +1,9 @@
 package device
 
 import (
+	"crypto/aes"
+	"encoding/binary"
+	"errors"
 	"log"
 	"sync"
 
@@ -29,6 +32,13 @@ type DeviceInfo struct {
 	JoinEUI  lorawan.EUI64     `json:"joineui"`
 	AppKey   lorawan.AES128Key `json:"appkey"`
 	DevNonce lorawan.DevNonce  `json:"devnonce"`
+
+	DevAddr lorawan.DevAddr   `json:"devaddr"`
+	AppSKey lorawan.AES128Key `json:"appskey"`
+	NwkSKey lorawan.AES128Key `json:"nwkskey"`
+
+	FCntUp uint32 `json:"fcntup"`
+	FCntDn uint32 `json:"fcntdn"`
 }
 
 func New(broadcastUplink chan<- lorawan.PHYPayload, DevEUI lorawan.EUI64, JoinEUI lorawan.EUI64, AppKey lorawan.AES128Key, DevNonce lorawan.DevNonce) *Device {
@@ -50,7 +60,63 @@ func (d *Device) GetInfo() DeviceInfo {
 		JoinEUI:  d.JoinEUI,
 		AppKey:   d.AppKey,
 		DevNonce: d.DevNonce,
+		DevAddr:  d.DevAddr,
+		AppSKey:  d.AppSKey,
+		NwkSKey:  d.NwkSKey,
+		FCntUp:   d.FCntUp,
+		FCntDn:   d.FCntDn,
 	}
+}
+
+func (d *Device) JoinAccept(frame lorawan.PHYPayload) error {
+	log.Printf("[%s] received join accept", d.DevEUI)
+
+	err := frame.DecryptJoinAcceptPayload(d.AppKey)
+	if err != nil {
+		log.Printf("[%s] decryption error %v", d.DevEUI, err)
+		return err
+	}
+
+	ok, err := frame.ValidateDownlinkJoinMIC(lorawan.JoinRequestType, d.JoinEUI, d.DevNonce-1, d.AppKey)
+	if err != nil {
+		log.Printf("[%s] MIC error %v", d.DevEUI, err)
+		return err
+	}
+	if ok {
+		joinAccept, ok := frame.MACPayload.(*lorawan.JoinAcceptPayload)
+		if !ok {
+			log.Printf("[%s] invalid MAC payload for data downlink", d.DevEUI)
+			return errors.New("invalid MAC payload")
+		}
+
+		d.mu.Lock()
+		defer d.mu.Unlock()
+
+		// DevAddr
+		d.DevAddr = joinAccept.DevAddr
+
+		// Derive NwkSKey
+		d.NwkSKey, err = deriveSessionKey(0x01, d.AppKey, joinAccept.JoinNonce, joinAccept.HomeNetID, d.DevNonce-1)
+		if err != nil {
+			log.Printf("[%s] failed to derive NwkSKey: %v", d.DevEUI, err)
+			return err
+		}
+
+		// Derive AppSKey
+		d.AppSKey, err = deriveSessionKey(0x02, d.AppKey, joinAccept.JoinNonce, joinAccept.HomeNetID, d.DevNonce-1)
+		if err != nil {
+			log.Printf("[%s] failed to derive AppSKey: %v", d.DevEUI, err)
+			return err
+		}
+
+		// Reset frame counters
+		d.FCntUp = 0
+		d.FCntDn = 0
+
+		log.Printf("[%s] join successful - DevAddr: %s", d.DevEUI, d.DevAddr)
+
+	}
+	return nil
 }
 
 func (d *Device) Downlink(frame lorawan.PHYPayload) error {
@@ -100,4 +166,38 @@ func (d *Device) broadcast(phy lorawan.PHYPayload) {
 			broadcastCh <- phy
 		}()
 	}
+}
+
+// deriveSessionKey derives NwkSKey (typ=0x01) or AppSKey (typ=0x02)
+// Following LoRaWAN 1.0.x specification
+func deriveSessionKey(typ byte, appKey lorawan.AES128Key, joinNonce lorawan.JoinNonce, netID lorawan.NetID, devNonce lorawan.DevNonce) (lorawan.AES128Key, error) {
+	var key lorawan.AES128Key
+
+	// Build the plaintext: type | JoinNonce | NetID | DevNonce | pad
+	plaintext := make([]byte, 16)
+	plaintext[0] = typ
+
+	// Convert JoinNonce (uint32) to 3 bytes (little-endian, only lower 3 bytes)
+	joinNonceBytes := make([]byte, 4)
+	binary.LittleEndian.PutUint32(joinNonceBytes, uint32(joinNonce))
+	copy(plaintext[1:4], joinNonceBytes[:3])
+
+	// Copy NetID (3 bytes)
+	copy(plaintext[4:7], netID[:])
+
+	// Convert DevNonce (uint16) to 2 bytes (little-endian)
+	devNonceBytes := make([]byte, 2)
+	binary.LittleEndian.PutUint16(devNonceBytes, uint16(devNonce))
+	copy(plaintext[7:9], devNonceBytes)
+
+	// bytes 9-15 are zero padding (already initialized)
+
+	// Encrypt with AppKey
+	block, err := aes.NewCipher(appKey[:])
+	if err != nil {
+		return key, err
+	}
+
+	block.Encrypt(key[:], plaintext)
+	return key, nil
 }

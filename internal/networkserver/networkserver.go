@@ -163,13 +163,35 @@ func (ns *NetworkServer) RemoveDevice(DevEUI lorawan.EUI64) error {
 }
 
 func (ns *NetworkServer) ForwardDownlink(downlink lorawan.PHYPayload) error {
-	ns.mu.RLock()
-	defer ns.mu.RUnlock()
+	if downlink.MHDR.MType == lorawan.UnconfirmedDataDown || downlink.MHDR.MType == lorawan.ConfirmedDataDown {
+		// Unconfirmed or Confirmed Downlink
+		macPL, ok := downlink.MACPayload.(*lorawan.MACPayload)
+		if !ok {
+			log.Printf("[%s] invalid MAC payload for data downlink", ns.name)
+			return errors.New("invalid MAC payload")
+		}
 
-	// TODO: filter by location and deveui/devaddr
-	for _, device := range ns.devices {
-		log.Printf("[%s] propagating downlink to device %s", ns.name, device.GetInfo().DevEUI)
-		go device.Downlink(downlink)
+		devAddr := macPL.FHDR.DevAddr
+
+		ns.mu.RLock()
+		defer ns.mu.RUnlock()
+		for _, device := range ns.devices {
+			// TODO: filter also by location
+			if device.DevAddr == devAddr {
+				// Propagate only to devices with same DevAddr
+				log.Printf("[%s] propagating downlink to device %s (DevAddr: %s)", ns.name, device.GetInfo().DevEUI, devAddr)
+				go device.Downlink(downlink)
+			}
+		}
+	} else {
+		// Join Accept
+		ns.mu.RLock()
+		defer ns.mu.RUnlock()
+		for _, device := range ns.devices {
+			// TODO: filter also by location
+			log.Printf("[%s] propagating downlink to device %s", ns.name, device.GetInfo().DevEUI)
+			go device.JoinAccept(downlink)
+		}
 	}
 
 	return nil

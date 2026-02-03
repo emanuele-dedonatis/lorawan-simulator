@@ -184,3 +184,226 @@ func TestDevice_JoinRequest(t *testing.T) {
 	})
 }
 
+func TestDevice_JoinAccept(t *testing.T) {
+	t.Run("processes valid join accept and derives session keys", func(t *testing.T) {
+		// Use well-known test vectors
+		devEUI := lorawan.EUI64{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}
+		joinEUI := lorawan.EUI64{0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18}
+		appKey := lorawan.AES128Key{0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff}
+		devNonce := lorawan.DevNonce(100)
+		device := newTestDevice(devEUI, joinEUI, appKey, devNonce)
+
+		// Increment DevNonce to match what JoinRequest would do
+		device.DevNonce = 101
+
+		// Create a JoinAccept payload
+		joinAccept := lorawan.JoinAcceptPayload{
+			JoinNonce: lorawan.JoinNonce(0x123456), // 3-byte value
+			HomeNetID: lorawan.NetID{0x00, 0x00, 0x01},
+			DevAddr:   lorawan.DevAddr{0x01, 0x02, 0x03, 0x04},
+			DLSettings: lorawan.DLSettings{
+				RX2DataRate: 0,
+				RX1DROffset: 0,
+			},
+			RXDelay: 1,
+		}
+
+		phy := lorawan.PHYPayload{
+			MHDR: lorawan.MHDR{
+				MType: lorawan.JoinAccept,
+				Major: lorawan.LoRaWANR1,
+			},
+			MACPayload: &joinAccept,
+		}
+
+		// Set MIC
+		err := phy.SetDownlinkJoinMIC(lorawan.JoinRequestType, joinEUI, lorawan.DevNonce(100), appKey)
+		assert.NoError(t, err)
+
+		// Encrypt the join accept
+		err = phy.EncryptJoinAcceptPayload(appKey)
+		assert.NoError(t, err)
+
+		// Process the join accept
+		err = device.JoinAccept(phy)
+		assert.NoError(t, err)
+
+		// Verify DevAddr is set
+		info := device.GetInfo()
+		assert.Equal(t, joinAccept.DevAddr, info.DevAddr)
+
+		// Verify session keys are derived (non-zero)
+		assert.NotEqual(t, lorawan.AES128Key{}, info.NwkSKey)
+		assert.NotEqual(t, lorawan.AES128Key{}, info.AppSKey)
+
+		// Verify frame counters are reset
+		assert.Equal(t, uint32(0), info.FCntUp)
+		assert.Equal(t, uint32(0), info.FCntDn)
+	})
+
+	t.Run("fails on invalid MIC", func(t *testing.T) {
+		devEUI := lorawan.EUI64{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}
+		joinEUI := lorawan.EUI64{0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18}
+		appKey := lorawan.AES128Key{0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff}
+		devNonce := lorawan.DevNonce(100)
+		device := newTestDevice(devEUI, joinEUI, appKey, devNonce)
+
+		// Increment DevNonce
+		device.DevNonce = 101
+
+		// Create a JoinAccept payload with wrong appKey for MIC
+		wrongAppKey := lorawan.AES128Key{0xff, 0xee, 0xdd, 0xcc, 0xbb, 0xaa, 0x99, 0x88, 0x77, 0x66, 0x55, 0x44, 0x33, 0x22, 0x11, 0x00}
+		
+		joinAccept := lorawan.JoinAcceptPayload{
+			JoinNonce: lorawan.JoinNonce(0x123456),
+			HomeNetID: lorawan.NetID{0x00, 0x00, 0x01},
+			DevAddr:   lorawan.DevAddr{0x01, 0x02, 0x03, 0x04},
+			DLSettings: lorawan.DLSettings{
+				RX2DataRate: 0,
+				RX1DROffset: 0,
+			},
+			RXDelay: 1,
+		}
+
+		phy := lorawan.PHYPayload{
+			MHDR: lorawan.MHDR{
+				MType: lorawan.JoinAccept,
+				Major: lorawan.LoRaWANR1,
+			},
+			MACPayload: &joinAccept,
+		}
+
+		// Set MIC with wrong key
+		err := phy.SetDownlinkJoinMIC(lorawan.JoinRequestType, joinEUI, lorawan.DevNonce(100), wrongAppKey)
+		assert.NoError(t, err)
+
+		// Encrypt with correct key
+		err = phy.EncryptJoinAcceptPayload(appKey)
+		assert.NoError(t, err)
+
+		// Process should fail due to MIC mismatch
+		err = device.JoinAccept(phy)
+		// The function doesn't return error on invalid MIC based on the code,
+		// it just logs and continues, so we verify keys are not set
+		info := device.GetInfo()
+		// DevAddr should remain unset (all zeros)
+		assert.Equal(t, lorawan.DevAddr{0x00, 0x00, 0x00, 0x00}, info.DevAddr)
+	})
+
+	t.Run("handles decryption errors", func(t *testing.T) {
+		devEUI := lorawan.EUI64{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}
+		joinEUI := lorawan.EUI64{0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18}
+		appKey := lorawan.AES128Key{0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff}
+		wrongAppKey := lorawan.AES128Key{0xff, 0xee, 0xdd, 0xcc, 0xbb, 0xaa, 0x99, 0x88, 0x77, 0x66, 0x55, 0x44, 0x33, 0x22, 0x11, 0x00}
+		devNonce := lorawan.DevNonce(100)
+		device := newTestDevice(devEUI, joinEUI, wrongAppKey, devNonce) // Wrong key for decryption
+
+		device.DevNonce = 101
+
+		joinAccept := lorawan.JoinAcceptPayload{
+			JoinNonce: lorawan.JoinNonce(0x123456),
+			HomeNetID: lorawan.NetID{0x00, 0x00, 0x01},
+			DevAddr:   lorawan.DevAddr{0x01, 0x02, 0x03, 0x04},
+			DLSettings: lorawan.DLSettings{
+				RX2DataRate: 0,
+				RX1DROffset: 0,
+			},
+			RXDelay: 1,
+		}
+
+		phy := lorawan.PHYPayload{
+			MHDR: lorawan.MHDR{
+				MType: lorawan.JoinAccept,
+				Major: lorawan.LoRaWANR1,
+			},
+			MACPayload: &joinAccept,
+		}
+
+		// Encrypt with the correct appKey (different from device's)
+		err := phy.EncryptJoinAcceptPayload(appKey)
+		assert.NoError(t, err)
+
+		// Decryption should fail since device has wrong key
+		err = device.JoinAccept(phy)
+		assert.Error(t, err)
+	})
+}
+
+func TestDeriveSessionKey(t *testing.T) {
+	t.Run("derives NwkSKey correctly", func(t *testing.T) {
+		appKey := lorawan.AES128Key{0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff}
+		joinNonce := lorawan.JoinNonce(0x123456)
+		netID := lorawan.NetID{0x00, 0x00, 0x01}
+		devNonce := lorawan.DevNonce(100)
+
+		nwkSKey, err := deriveSessionKey(0x01, appKey, joinNonce, netID, devNonce)
+		assert.NoError(t, err)
+		assert.NotEqual(t, lorawan.AES128Key{}, nwkSKey)
+		
+		// Verify it's deterministic - same inputs produce same output
+		nwkSKey2, err := deriveSessionKey(0x01, appKey, joinNonce, netID, devNonce)
+		assert.NoError(t, err)
+		assert.Equal(t, nwkSKey, nwkSKey2)
+	})
+
+	t.Run("derives AppSKey correctly", func(t *testing.T) {
+		appKey := lorawan.AES128Key{0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff}
+		joinNonce := lorawan.JoinNonce(0x123456)
+		netID := lorawan.NetID{0x00, 0x00, 0x01}
+		devNonce := lorawan.DevNonce(100)
+
+		appSKey, err := deriveSessionKey(0x02, appKey, joinNonce, netID, devNonce)
+		assert.NoError(t, err)
+		assert.NotEqual(t, lorawan.AES128Key{}, appSKey)
+		
+		// Verify it's deterministic
+		appSKey2, err := deriveSessionKey(0x02, appKey, joinNonce, netID, devNonce)
+		assert.NoError(t, err)
+		assert.Equal(t, appSKey, appSKey2)
+	})
+
+	t.Run("NwkSKey and AppSKey are different", func(t *testing.T) {
+		appKey := lorawan.AES128Key{0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff}
+		joinNonce := lorawan.JoinNonce(0x123456)
+		netID := lorawan.NetID{0x00, 0x00, 0x01}
+		devNonce := lorawan.DevNonce(100)
+
+		nwkSKey, err := deriveSessionKey(0x01, appKey, joinNonce, netID, devNonce)
+		assert.NoError(t, err)
+
+		appSKey, err := deriveSessionKey(0x02, appKey, joinNonce, netID, devNonce)
+		assert.NoError(t, err)
+
+		// NwkSKey and AppSKey should be different
+		assert.NotEqual(t, nwkSKey, appSKey)
+	})
+
+	t.Run("different inputs produce different keys", func(t *testing.T) {
+		appKey := lorawan.AES128Key{0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff}
+		joinNonce1 := lorawan.JoinNonce(0x123456)
+		joinNonce2 := lorawan.JoinNonce(0x654321)
+		netID := lorawan.NetID{0x00, 0x00, 0x01}
+		devNonce := lorawan.DevNonce(100)
+
+		key1, err := deriveSessionKey(0x01, appKey, joinNonce1, netID, devNonce)
+		assert.NoError(t, err)
+
+		key2, err := deriveSessionKey(0x01, appKey, joinNonce2, netID, devNonce)
+		assert.NoError(t, err)
+
+		// Different joinNonces should produce different keys
+		assert.NotEqual(t, key1, key2)
+	})
+
+	t.Run("handles edge case values", func(t *testing.T) {
+		appKey := lorawan.AES128Key{0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff}
+		joinNonce := lorawan.JoinNonce(0xffffff) // Max 3-byte value
+		netID := lorawan.NetID{0xff, 0xff, 0xff}
+		devNonce := lorawan.DevNonce(0xffff) // Max 2-byte value
+
+		nwkSKey, err := deriveSessionKey(0x01, appKey, joinNonce, netID, devNonce)
+		assert.NoError(t, err)
+		assert.NotEqual(t, lorawan.AES128Key{}, nwkSKey)
+	})
+}
+

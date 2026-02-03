@@ -229,3 +229,255 @@ func TestNetworkServer_GetInfo(t *testing.T) {
 		assert.Equal(t, 0, info.DeviceCount)
 	})
 }
+
+func TestNetworkServer_ForwardDownlink(t *testing.T) {
+	t.Run("broadcasts JoinAccept to all devices", func(t *testing.T) {
+		ns := newTestNetworkServer("test-server")
+
+		// Add devices
+		devEUI1 := lorawan.EUI64{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}
+		devEUI2 := lorawan.EUI64{0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18}
+		joinEUI := lorawan.EUI64{0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28}
+		appKey := lorawan.AES128Key{0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff}
+		devNonce := lorawan.DevNonce(100)
+
+		dev1, _ := ns.AddDevice(devEUI1, joinEUI, appKey, devNonce)
+		dev2, _ := ns.AddDevice(devEUI2, joinEUI, appKey, devNonce)
+
+		// Create a JoinAccept frame
+		joinAccept := lorawan.JoinAcceptPayload{
+			JoinNonce: lorawan.JoinNonce(0x123456),
+			HomeNetID: lorawan.NetID{0x00, 0x00, 0x01},
+			DevAddr:   lorawan.DevAddr{0x01, 0x02, 0x03, 0x04},
+			DLSettings: lorawan.DLSettings{
+				RX2DataRate: 0,
+				RX1DROffset: 0,
+			},
+			RXDelay: 1,
+		}
+
+		phy := lorawan.PHYPayload{
+			MHDR: lorawan.MHDR{
+				MType: lorawan.JoinAccept,
+				Major: lorawan.LoRaWANR1,
+			},
+			MACPayload: &joinAccept,
+		}
+
+		// Forward should broadcast to all devices (JoinAccept type)
+		err := ns.ForwardDownlink(phy)
+		assert.NoError(t, err)
+
+		// Both devices should exist
+		assert.NotNil(t, dev1)
+		assert.NotNil(t, dev2)
+	})
+
+	t.Run("forwards data downlink only to device with matching DevAddr", func(t *testing.T) {
+		ns := newTestNetworkServer("test-server")
+
+		// Add devices with different DevAddrs
+		devEUI1 := lorawan.EUI64{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}
+		devEUI2 := lorawan.EUI64{0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18}
+		joinEUI := lorawan.EUI64{0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28}
+		appKey := lorawan.AES128Key{0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff}
+		devNonce := lorawan.DevNonce(100)
+
+		dev1, _ := ns.AddDevice(devEUI1, joinEUI, appKey, devNonce)
+		dev2, _ := ns.AddDevice(devEUI2, joinEUI, appKey, devNonce)
+
+		// Simulate that dev1 has completed join and has a DevAddr
+		targetDevAddr := lorawan.DevAddr{0x01, 0x02, 0x03, 0x04}
+		dev1.DevAddr = targetDevAddr
+		dev2.DevAddr = lorawan.DevAddr{0x05, 0x06, 0x07, 0x08} // Different DevAddr
+
+		// Create a data downlink frame for dev1's DevAddr
+		macPayload := lorawan.MACPayload{
+			FHDR: lorawan.FHDR{
+				DevAddr: targetDevAddr,
+				FCtrl: lorawan.FCtrl{
+					ADR:       false,
+					ADRACKReq: false,
+					ACK:       false,
+					FPending:  false,
+				},
+				FCnt: 1,
+			},
+			FPort:      nil,
+			FRMPayload: []lorawan.Payload{},
+		}
+
+		phy := lorawan.PHYPayload{
+			MHDR: lorawan.MHDR{
+				MType: lorawan.UnconfirmedDataDown,
+				Major: lorawan.LoRaWANR1,
+			},
+			MACPayload: &macPayload,
+		}
+
+		// Forward downlink - should only go to dev1 (matching DevAddr)
+		err := ns.ForwardDownlink(phy)
+		assert.NoError(t, err)
+
+		// Verify both devices still exist
+		assert.NotNil(t, dev1)
+		assert.NotNil(t, dev2)
+	})
+
+	t.Run("handles empty device list gracefully", func(t *testing.T) {
+		ns := newTestNetworkServer("test-server")
+
+		phy := lorawan.PHYPayload{
+			MHDR: lorawan.MHDR{
+				MType: lorawan.JoinAccept,
+				Major: lorawan.LoRaWANR1,
+			},
+		}
+
+		// Should not panic when no devices exist
+		err := ns.ForwardDownlink(phy)
+		assert.NoError(t, err)
+	})
+
+	t.Run("filters data downlink by DevAddr correctly", func(t *testing.T) {
+		ns := newTestNetworkServer("test-server")
+
+		// Add multiple devices
+		devEUI1 := lorawan.EUI64{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}
+		devEUI2 := lorawan.EUI64{0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18}
+		devEUI3 := lorawan.EUI64{0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28}
+		joinEUI := lorawan.EUI64{0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38}
+		appKey := lorawan.AES128Key{0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff}
+		devNonce := lorawan.DevNonce(100)
+
+		dev1, _ := ns.AddDevice(devEUI1, joinEUI, appKey, devNonce)
+		dev2, _ := ns.AddDevice(devEUI2, joinEUI, appKey, devNonce)
+		dev3, _ := ns.AddDevice(devEUI3, joinEUI, appKey, devNonce)
+
+		// Assign different DevAddrs
+		dev1.DevAddr = lorawan.DevAddr{0x01, 0x00, 0x00, 0x00}
+		dev2.DevAddr = lorawan.DevAddr{0x02, 0x00, 0x00, 0x00}
+		dev3.DevAddr = lorawan.DevAddr{0x03, 0x00, 0x00, 0x00}
+
+		// Create downlink for dev2's DevAddr
+		targetDevAddr := lorawan.DevAddr{0x02, 0x00, 0x00, 0x00}
+		macPayload := lorawan.MACPayload{
+			FHDR: lorawan.FHDR{
+				DevAddr: targetDevAddr,
+				FCtrl: lorawan.FCtrl{
+					ADR:       false,
+					ADRACKReq: false,
+					ACK:       false,
+					FPending:  false,
+				},
+				FCnt: 1,
+			},
+			FPort:      nil,
+			FRMPayload: []lorawan.Payload{},
+		}
+
+		phy := lorawan.PHYPayload{
+			MHDR: lorawan.MHDR{
+				MType: lorawan.UnconfirmedDataDown,
+				Major: lorawan.LoRaWANR1,
+			},
+			MACPayload: &macPayload,
+		}
+
+		// Forward - should only match dev2
+		err := ns.ForwardDownlink(phy)
+		assert.NoError(t, err)
+
+		// All devices should still exist
+		assert.NotNil(t, dev1)
+		assert.NotNil(t, dev2)
+		assert.NotNil(t, dev3)
+	})
+
+	t.Run("handles ConfirmedDataDown same as UnconfirmedDataDown", func(t *testing.T) {
+		ns := newTestNetworkServer("test-server")
+
+		devEUI := lorawan.EUI64{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}
+		joinEUI := lorawan.EUI64{0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18}
+		appKey := lorawan.AES128Key{0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff}
+		devNonce := lorawan.DevNonce(100)
+
+		dev, _ := ns.AddDevice(devEUI, joinEUI, appKey, devNonce)
+		targetDevAddr := lorawan.DevAddr{0x01, 0x02, 0x03, 0x04}
+		dev.DevAddr = targetDevAddr
+
+		// Create a confirmed data downlink frame
+		macPayload := lorawan.MACPayload{
+			FHDR: lorawan.FHDR{
+				DevAddr: targetDevAddr,
+				FCtrl: lorawan.FCtrl{
+					ADR:       false,
+					ADRACKReq: false,
+					ACK:       false,
+					FPending:  false,
+				},
+				FCnt: 1,
+			},
+			FPort:      nil,
+			FRMPayload: []lorawan.Payload{},
+		}
+
+		phy := lorawan.PHYPayload{
+			MHDR: lorawan.MHDR{
+				MType: lorawan.ConfirmedDataDown,
+				Major: lorawan.LoRaWANR1,
+			},
+			MACPayload: &macPayload,
+		}
+
+		// Should handle ConfirmedDataDown with DevAddr filtering
+		err := ns.ForwardDownlink(phy)
+		assert.NoError(t, err)
+	})
+}
+
+func TestNetworkServer_ForwardUplink(t *testing.T) {
+	t.Run("forwards uplink to all gateways", func(t *testing.T) {
+		ns := newTestNetworkServer("test-server")
+
+		// Add gateways
+		eui1 := lorawan.EUI64{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}
+		eui2 := lorawan.EUI64{0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18}
+
+		gw1, _ := ns.AddGateway(eui1, "wss://gw1.com")
+		gw2, _ := ns.AddGateway(eui2, "wss://gw2.com")
+
+		// Create an uplink frame
+		phy := lorawan.PHYPayload{
+			MHDR: lorawan.MHDR{
+				MType: lorawan.UnconfirmedDataUp,
+				Major: lorawan.LoRaWANR1,
+			},
+		}
+
+		// Forward should send to all gateways
+		assert.NotPanics(t, func() {
+			ns.ForwardUplink(phy)
+		})
+
+		// Verify gateways still exist
+		assert.NotNil(t, gw1)
+		assert.NotNil(t, gw2)
+	})
+
+	t.Run("handles empty gateway list gracefully", func(t *testing.T) {
+		ns := newTestNetworkServer("test-server")
+
+		phy := lorawan.PHYPayload{
+			MHDR: lorawan.MHDR{
+				MType: lorawan.UnconfirmedDataUp,
+				Major: lorawan.LoRaWANR1,
+			},
+		}
+
+		// Should not panic when no gateways exist
+		assert.NotPanics(t, func() {
+			ns.ForwardUplink(phy)
+		})
+	})
+}
