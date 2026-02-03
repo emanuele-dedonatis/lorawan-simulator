@@ -223,6 +223,23 @@ if [ $? -ne 0 ]; then
 fi
 echo ""
 
+# Wait for join to complete
+sleep 2
+
+# Step 9: Send Uplink Data
+echo -e "${YELLOW}Step 9: Sending Uplink Data from Device '0011223344556677'...${NC}"
+response=$(curl -s -w "\n%{http_code}" -X POST "$BASE_URL/network-servers/localhost/devices/0011223344556677/uplink")
+
+http_code=$(echo "$response" | tail -n1)
+body=$(echo "$response" | sed '$d')
+
+echo "Response: $body"
+check_status "$http_code" "Send Uplink Data"
+if [ $? -ne 0 ]; then
+    exit 1
+fi
+echo ""
+
 # Footer
 echo "================================================"
 echo -e "${GREEN}✓ All steps completed successfully!${NC}"
