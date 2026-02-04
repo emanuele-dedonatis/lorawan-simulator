@@ -15,3 +15,14 @@ services:
       timeout: 10s
       retries: 3
       start_period: 10s
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: lorawan-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - lorawan-simulator
+    restart: unless-stopped

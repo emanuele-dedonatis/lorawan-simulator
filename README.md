@@ -1,28 +1,41 @@
-# LoRaWAN Simulator
+# LoRaWAN® Simulator
 
-A flexible LoRaWAN network simulator to simulate multiple network servers, gateways, and end devices for testing LoRaWAN applications without physical hardware.
+A flexible LoRaWAN® network simulator to simulate multiple network servers, gateways, and end devices for testing LoRaWAN® applications without physical hardware.
 
 ## Features
 
 - ✅ **Multiple Network Servers** - Manage multiple network server instances
-- ✅ **Gateway Simulation** - Simulate LoRaWAN gateways with WebSocket connections
+- ✅ **Gateway Simulation** - Simulate LoRaWAN® gateways with WebSocket connections
 - ✅ **Device Simulation** - Simulate end devices with OTAA join and uplink capabilities
 - ✅ **REST API** - Complete HTTP API for managing simulated entities
-- ✅ **LoRaWAN 1.0.x** - Full protocol support with encryption and MIC validation
+- ✅ **LoRaWAN® 1.0.x** - Full protocol support with encryption and MIC validation
 - ✅ **Docker Support** - Easy deployment with Docker and docker compose
+- ✅ **Web GUI** - Simple Vanilla JS UI for visual management
+
+## Web Dashboard
+
+The simulator includes a web-based dashboard for easy management of network servers, gateways, and devices:
+
+![LoRaWAN Simulator Dashboard](docs/dashboard-screenshot.png)
+
+**Features:**
+- Visual status indicators (green: connected, red: disconnected, yellow: transitioning)
+- Interactive map centered on your location
+- Collapsible sections for organized viewing
+- Real-time connection management
+- One-click join and uplink operations
 
 ### Coming Soon
 
-- **MAC Commands Handling** - Full support for LoRaWAN MAC commands processing
+- **MAC Commands Handling** - Full support for LoRaWAN® MAC commands processing
 - **Custom Radio Parameters** - Configurable spreading factor, bandwidth, and frequency settings
 - **Device and Gateway Channel Plans** - Support for regional channel plans and custom configurations
 - **Geolocation Broadcast** - Simulate GPS coordinates and location data
-- **GUI** - Web-based graphical user interface for easier management
 - **Class B and Class C Support** - Beyond Class A device simulation
+- **Network Server Integration** - Automatically import gateways and devices from LORIOT, ChirpStack, or The Things Network (TTN)
+
 
 ## Quick Start
-
-### Using Docker Compose (Recommended)
 
 1. **Start the simulator:**
 
@@ -30,31 +43,13 @@ A flexible LoRaWAN network simulator to simulate multiple network servers, gatew
 docker compose up
 ```
 
-2. **Verify it's running:**
-
-```bash
-curl http://localhost:2208/health
-```
-
-### Using Go
-
-1. **Install dependencies:**
-
-```bash
-go mod download
-```
-
-2. **Run the simulator:**
-
-```bash
-go run ./cmd/lorawan-simulator/main.go
-```
+2. **Access the services:**
+   - **Frontend Dashboard**: http://localhost:3000
+   - **Backend API**: http://localhost:2208
 
 3. **Verify it's running:**
-
-```bash
-curl http://localhost:2208/health
-```
+   - **Frontend Dashboard**: Open a browser at http://localhost:3000
+   - **Backend API**: `curl http://localhost:2208/health`
 
 ## API Documentation
 
@@ -98,7 +93,7 @@ curl -X POST http://localhost:2208/network-servers/localhost/devices/00112233445
 
 ## Console Output Examples
 
-The simulator provides detailed logging of all message exchanges and LoRaWAN frame processing. Here are examples from a complete test flow.
+The simulator provides detailed logging of all message exchanges and LoRaWAN® frame processing. Here are examples from a complete test flow.
 
 ### Starting the Simulator
 
@@ -210,25 +205,6 @@ When receiving a downlink from the network server:
 2026/02/03 08:06:27 [localhost] propagating downlink to device 0101010101010101
 2026/02/03 08:06:27 [0101010101010101] downlink FCnt 0 - FPort: 1 - FRMPayload: 46
 ```
-
-### Running the Complete Test Flow
-
-You can see all these logs by running the test script:
-
-```bash
-./test-flow.sh
-```
-
-The script will:
-1. Check API health
-2. Create a network server
-3. Add and connect a gateway
-4. Add a device
-5. Send a join request
-6. Send uplink data
-7. Verify the device state
-
-All messages exchanged between gateways, devices, and the network server are logged with full details for debugging and learning purposes.
 
 ## Contributing
 
