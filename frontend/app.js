@@ -240,9 +240,28 @@ function toggleDevices(name) {
 
 // Modal functions
 function showAddServerModal() {
-    document.getElementById('modal').classList.add('show');
-    document.getElementById('server-name').value = '';
-    document.getElementById('server-name').focus();
+    const modal = document.getElementById('modal');
+    const modalTitle = modal.querySelector('.modal-header h2');
+    const modalBody = modal.querySelector('.modal-body');
+    
+    // Clear the modal body first to ensure fresh content
+    modalBody.innerHTML = '';
+    modalTitle.textContent = 'Add Network Server';
+    
+    modalBody.innerHTML = `
+        <label>Server Name</label>
+        <input type="text" id="server-name" placeholder="my-server" onkeypress="if(event.key==='Enter')createServer()">
+        <div class="modal-actions">
+            <button onclick="closeModal()" class="btn btn-secondary">Cancel</button>
+            <button onclick="createServer()" class="btn btn-primary">Create</button>
+        </div>
+    `;
+
+    modal.classList.add('show');
+    setTimeout(() => {
+        const input = document.getElementById('server-name');
+        input?.focus();
+    }, 0);
 }
 
 function closeModal() {
@@ -312,11 +331,15 @@ async function sendUplink(serverName, eui) {
 
 // Modal functions for adding gateway and device
 function showAddGatewayModal(serverName) {
+    console.log('showAddGatewayModal called with serverName:', serverName);
     const modal = document.getElementById('modal');
     const modalTitle = modal.querySelector('.modal-header h2');
     const modalBody = modal.querySelector('.modal-body');
     
+    // Clear the modal body first to ensure fresh content
+    modalBody.innerHTML = '';
     modalTitle.textContent = 'Add Gateway';
+    
     modalBody.innerHTML = `
         <label>Gateway EUI (16 hex characters)</label>
         <input type="text" id="gateway-eui" placeholder="AABBCCDDEEFF0011" maxlength="16">
@@ -328,8 +351,12 @@ function showAddGatewayModal(serverName) {
         </div>
     `;
     
+    console.log('Gateway modal title:', modalTitle.textContent);
+    
     modal.classList.add('show');
-    document.getElementById('gateway-eui').focus();
+    setTimeout(() => {
+        document.getElementById('gateway-eui')?.focus();
+    }, 0);
 }
 
 function showAddDeviceModal(serverName) {
@@ -337,7 +364,10 @@ function showAddDeviceModal(serverName) {
     const modalTitle = modal.querySelector('.modal-header h2');
     const modalBody = modal.querySelector('.modal-body');
     
+    // Clear the modal body first to ensure fresh content
+    modalBody.innerHTML = '';
     modalTitle.textContent = 'Add Device';
+    
     modalBody.innerHTML = `
         <label>Device EUI (16 hex characters)</label>
         <input type="text" id="device-eui" placeholder="0011223344556677" maxlength="16">
@@ -354,7 +384,9 @@ function showAddDeviceModal(serverName) {
     `;
     
     modal.classList.add('show');
-    document.getElementById('device-eui').focus();
+    setTimeout(() => {
+        document.getElementById('device-eui')?.focus();
+    }, 0);
 }
 
 async function createGateway(serverName) {
