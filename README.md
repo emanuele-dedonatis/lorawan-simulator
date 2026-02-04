@@ -1,6 +1,6 @@
 # LoRaWAN® Simulator
 
-A flexible LoRaWAN® network simulator to simulate multiple network servers, gateways, and end devices for testing LoRaWAN® applications without physical hardware.
+An open-source LoRaWAN® network simulator to simulate multiple network servers, gateways, and end devices for testing LoRaWAN® applications without physical hardware.
 
 ## Features
 
@@ -44,12 +44,8 @@ docker compose up
 ```
 
 2. **Access the services:**
-   - **Frontend Dashboard**: http://localhost:3000
+   - **Frontend Dashboard**: http://localhost:8022
    - **Backend API**: http://localhost:2208
-
-3. **Verify it's running:**
-   - **Frontend Dashboard**: Open a browser at http://localhost:3000
-   - **Backend API**: `curl http://localhost:2208/health`
 
 ## API Documentation
 
@@ -209,10 +205,6 @@ When receiving a downlink from the network server:
 ## Contributing
 
 Contributions are welcome! Please feel free to submit issues and pull requests.
-
-## License
-
-See [LICENSE](LICENSE) file for details.
 
 ## Disclaimer
 

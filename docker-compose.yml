@@ -6,8 +6,7 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     container_name: lorawan-simulator
-    ports:
-      - "2208:2208"
+    network_mode: host
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:2208/network-servers"]
@@ -21,8 +20,7 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     container_name: lorawan-frontend
-    ports:
-      - "3000:80"
+    network_mode: host
     depends_on:
       - lorawan-simulator
     restart: unless-stopped
