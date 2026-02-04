@@ -3,7 +3,7 @@ version: '3.8'
 services:
   lorawan-simulator:
     build:
-      context: .
+      context: ./backend
       dockerfile: Dockerfile
     container_name: lorawan-simulator
     ports:

@@ -1,7 +1,0 @@
-.git
-.gitignore
-*.md
-test-flow.sh
-.vscode
-.idea
-*.log
