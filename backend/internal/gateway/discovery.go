@@ -62,7 +62,7 @@ func (g *Gateway) lnsDiscovery() (string, error) {
 	}()
 
 	// Send router message
-	routerMsg := fmt.Sprintf(`{"router":"%s"}`, formatEUI(g.eui))
+	routerMsg := fmt.Sprintf(`{"router":"%s"}`, formatEUIasID6(g.eui))
 	if routerErr := conn.WriteMessage(websocket.TextMessage, []byte(routerMsg)); routerErr != nil {
 		log.Printf("[%s] discovery router error: %v", g.eui, routerErr)
 
