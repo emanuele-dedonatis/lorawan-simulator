@@ -19,8 +19,7 @@ type NetworkServerConfig struct {
 	Type       NetworkServerType `json:"type"`
 	URL        string            `json:"url,omitempty"`
 	AuthHeader string            `json:"authHeader,omitempty"` // LORIOT
-	APIToken   string            `json:"apiToken,omitempty"`   // ChirpStack
-	APIKey     string            `json:"apiKey,omitempty"`     // TTN
+	APIKey     string            `json:"apiKey,omitempty"`     // ChirpStack, TTN
 }
 
 // IntegrationClient defines the interface for network server integrations
@@ -49,10 +48,10 @@ func NewIntegrationClient(config NetworkServerConfig) (IntegrationClient, error)
 		return NewLORIOTClient(config.URL, config.AuthHeader), nil
 
 	case NetworkServerTypeChirpStack:
-		if config.URL == "" || config.APIToken == "" {
+		if config.URL == "" || config.APIKey == "" {
 			return &GenericClient{}, nil
 		}
-		return NewChirpStackClient(config.URL, config.APIToken), nil
+		return NewChirpStackClient(config.URL, config.APIKey), nil
 
 	case NetworkServerTypeTTN:
 		if config.URL == "" || config.APIKey == "" {

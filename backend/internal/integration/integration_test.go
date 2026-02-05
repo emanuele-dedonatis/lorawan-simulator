@@ -62,9 +62,9 @@ func TestNewIntegrationClient(t *testing.T) {
 
 	t.Run("creates ChirpStack client with valid config", func(t *testing.T) {
 		config := NetworkServerConfig{
-			Type:     NetworkServerTypeChirpStack,
-			URL:      "https://chirpstack.example.com",
-			APIToken: "token123",
+			Type:   NetworkServerTypeChirpStack,
+			URL:    "https://chirpstack.example.com",
+			APIKey: "key123",
 		}
 
 		client, err := NewIntegrationClient(config)
@@ -76,8 +76,8 @@ func TestNewIntegrationClient(t *testing.T) {
 
 	t.Run("falls back to generic client for ChirpStack with missing URL", func(t *testing.T) {
 		config := NetworkServerConfig{
-			Type:     NetworkServerTypeChirpStack,
-			APIToken: "token123",
+			Type:   NetworkServerTypeChirpStack,
+			APIKey: "key123",
 		}
 
 		client, err := NewIntegrationClient(config)
@@ -87,7 +87,7 @@ func TestNewIntegrationClient(t *testing.T) {
 		assert.IsType(t, &GenericClient{}, client)
 	})
 
-	t.Run("falls back to generic client for ChirpStack with missing token", func(t *testing.T) {
+	t.Run("falls back to generic client for ChirpStack with missing api key", func(t *testing.T) {
 		config := NetworkServerConfig{
 			Type: NetworkServerTypeChirpStack,
 			URL:  "https://chirpstack.example.com",
@@ -189,7 +189,6 @@ func TestNetworkServerConfig_JSON(t *testing.T) {
 		assert.Equal(t, NetworkServerType(""), config.Type)
 		assert.Equal(t, "", config.URL)
 		assert.Equal(t, "", config.AuthHeader)
-		assert.Equal(t, "", config.APIToken)
 		assert.Equal(t, "", config.APIKey)
 	})
 }

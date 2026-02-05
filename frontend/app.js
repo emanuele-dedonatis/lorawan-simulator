@@ -299,8 +299,8 @@ function updateServerTypeFields() {
         fieldsHTML = `
             <label>URL</label>
             <input type="text" id="server-url" placeholder="https://chirpstack.example.com">
-            <label>API Token</label>
-            <input type="text" id="server-token" placeholder="your-api-token">
+            <label>API Key</label>
+            <input type="text" id="server-apikey" placeholder="your-apikey">
         `;
     } else if (serverType === 'ttn') {
         fieldsHTML = `
@@ -346,15 +346,15 @@ async function createServer() {
         config.authHeader = authHeader;
     } else if (serverType === 'chirpstack') {
         const url = document.getElementById('server-url')?.value.trim();
-        const apiToken = document.getElementById('server-token')?.value.trim();
+        const apiKey = document.getElementById('server-apikey')?.value.trim();
         
-        if (!url || !apiToken) {
+        if (!url || !apiKey) {
             alert('Please fill in all ChirpStack fields');
             return;
         }
         
         config.url = url;
-        config.apiToken = apiToken;
+        config.apiKey = apiKey;
     } else if (serverType === 'ttn') {
         const url = document.getElementById('server-url')?.value.trim();
         const apiKey = document.getElementById('server-apikey')?.value.trim();

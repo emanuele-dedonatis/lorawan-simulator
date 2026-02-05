@@ -142,7 +142,7 @@ Creates a new network server instance.
   "config": {
     "type": "chirpstack",
     "url": "https://chirpstack.example.com",
-    "apiToken": "YOUR_API_TOKEN"
+    "apiKey": "YOUR_API_KEY"
   }
 }
 ```
@@ -669,7 +669,7 @@ Integrates with ChirpStack network servers (planned).
 {
   "type": "chirpstack",
   "url": "https://chirpstack.example.com",
-  "apiToken": "YOUR_API_TOKEN"
+  "apiKey": "YOUR_API_KEY"
 }
 ```
 
