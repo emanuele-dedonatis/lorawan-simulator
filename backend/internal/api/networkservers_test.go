@@ -1,6 +1,7 @@
 package api
 
 import (
+        "github.com/emanuele-dedonatis/lorawan-simulator/internal/integration"
 	"bytes"
 	"encoding/json"
 	"net/http"
@@ -57,9 +58,9 @@ func TestGetNetworkServers(t *testing.T) {
 		router, testPool := setupTestRouter()
 
 		// Add some network servers
-		testPool.Add("server-1")
-		testPool.Add("server-2")
-		testPool.Add("server-3")
+		testPool.Add("server-1", integration.NetworkServerConfig{Type: integration.NetworkServerTypeGeneric})
+		testPool.Add("server-2", integration.NetworkServerConfig{Type: integration.NetworkServerTypeGeneric})
+		testPool.Add("server-3", integration.NetworkServerConfig{Type: integration.NetworkServerTypeGeneric})
 
 		req, _ := http.NewRequest("GET", "/network-servers", nil)
 		w := httptest.NewRecorder()
@@ -86,7 +87,7 @@ func TestGetNetworkServers(t *testing.T) {
 func TestGetNetworkServersByName(t *testing.T) {
 	t.Run("returns network server when it exists", func(t *testing.T) {
 		router, testPool := setupTestRouter()
-		testPool.Add("test-server")
+		testPool.Add("test-server", integration.NetworkServerConfig{Type: integration.NetworkServerTypeGeneric})
 
 		req, _ := http.NewRequest("GET", "/network-servers/test-server", nil)
 		w := httptest.NewRecorder()
@@ -144,7 +145,7 @@ func TestPostNetworkServer(t *testing.T) {
 
 	t.Run("returns 409 when adding duplicate network server", func(t *testing.T) {
 		router, testPool := setupTestRouter()
-		testPool.Add("existing-server")
+		testPool.Add("existing-server", integration.NetworkServerConfig{Type: integration.NetworkServerTypeGeneric})
 
 		body := map[string]string{"name": "existing-server"}
 		jsonBody, _ := json.Marshal(body)
@@ -203,7 +204,7 @@ func TestPostNetworkServer(t *testing.T) {
 func TestDelNetworkServer(t *testing.T) {
 	t.Run("deletes network server successfully", func(t *testing.T) {
 		router, testPool := setupTestRouter()
-		testPool.Add("test-server")
+		testPool.Add("test-server", integration.NetworkServerConfig{Type: integration.NetworkServerTypeGeneric})
 
 		req, _ := http.NewRequest("DELETE", "/network-servers/test-server", nil)
 		w := httptest.NewRecorder()

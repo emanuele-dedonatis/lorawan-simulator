@@ -1,6 +1,7 @@
 package api
 
 import (
+        "github.com/emanuele-dedonatis/lorawan-simulator/internal/integration"
 	"bytes"
 	"encoding/json"
 	"net/http"
@@ -54,7 +55,7 @@ func setupDeviceTestRouter() (*gin.Engine, *networkserver.Pool) {
 func TestGetDevices(t *testing.T) {
 	t.Run("returns empty list when no devices", func(t *testing.T) {
 		router, testPool := setupDeviceTestRouter()
-		testPool.Add("test-server")
+		testPool.Add("test-server", integration.NetworkServerConfig{Type: integration.NetworkServerTypeGeneric})
 
 		req, _ := http.NewRequest("GET", "/network-servers/test-server/devices", nil)
 		w := httptest.NewRecorder()
@@ -70,7 +71,7 @@ func TestGetDevices(t *testing.T) {
 
 	t.Run("returns list of devices", func(t *testing.T) {
 		router, testPool := setupDeviceTestRouter()
-		ns, _ := testPool.Add("test-server")
+		ns, _ := testPool.Add("test-server", integration.NetworkServerConfig{Type: integration.NetworkServerTypeGeneric})
 
 		// Add some devices
 		devEUI1 := lorawan.EUI64{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}
@@ -109,7 +110,7 @@ func TestGetDevices(t *testing.T) {
 func TestPostDevice(t *testing.T) {
 	t.Run("creates device successfully", func(t *testing.T) {
 		router, testPool := setupDeviceTestRouter()
-		testPool.Add("test-server")
+		testPool.Add("test-server", integration.NetworkServerConfig{Type: integration.NetworkServerTypeGeneric})
 
 		body := map[string]interface{}{
 			"deveui":   "0102030405060708",
@@ -134,7 +135,7 @@ func TestPostDevice(t *testing.T) {
 
 	t.Run("returns 409 when adding duplicate device", func(t *testing.T) {
 		router, testPool := setupDeviceTestRouter()
-		ns, _ := testPool.Add("test-server")
+		ns, _ := testPool.Add("test-server", integration.NetworkServerConfig{Type: integration.NetworkServerTypeGeneric})
 
 		devEUI := lorawan.EUI64{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}
 		joinEUI := lorawan.EUI64{0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff, 0x00, 0x11}
@@ -163,7 +164,7 @@ func TestPostDevice(t *testing.T) {
 
 	t.Run("returns 400 when DevEUI is missing", func(t *testing.T) {
 		router, testPool := setupDeviceTestRouter()
-		testPool.Add("test-server")
+		testPool.Add("test-server", integration.NetworkServerConfig{Type: integration.NetworkServerTypeGeneric})
 
 		body := map[string]string{}
 		jsonBody, _ := json.Marshal(body)
@@ -178,7 +179,7 @@ func TestPostDevice(t *testing.T) {
 
 	t.Run("returns 400 when DevEUI format is invalid", func(t *testing.T) {
 		router, testPool := setupDeviceTestRouter()
-		testPool.Add("test-server")
+		testPool.Add("test-server", integration.NetworkServerConfig{Type: integration.NetworkServerTypeGeneric})
 
 		body := map[string]string{
 			"deveui":  "invalid-eui",
@@ -202,7 +203,7 @@ func TestPostDevice(t *testing.T) {
 
 	t.Run("returns 400 when JSON is invalid", func(t *testing.T) {
 		router, testPool := setupDeviceTestRouter()
-		testPool.Add("test-server")
+		testPool.Add("test-server", integration.NetworkServerConfig{Type: integration.NetworkServerTypeGeneric})
 
 		invalidJSON := []byte(`{"deveui": invalid}`)
 
@@ -236,7 +237,7 @@ func TestPostDevice(t *testing.T) {
 func TestGetDeviceByEUI(t *testing.T) {
 	t.Run("returns device when it exists", func(t *testing.T) {
 		router, testPool := setupDeviceTestRouter()
-		ns, _ := testPool.Add("test-server")
+		ns, _ := testPool.Add("test-server", integration.NetworkServerConfig{Type: integration.NetworkServerTypeGeneric})
 
 		devEUI := lorawan.EUI64{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}
 		joinEUI := lorawan.EUI64{0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff, 0x00, 0x11}
@@ -257,7 +258,7 @@ func TestGetDeviceByEUI(t *testing.T) {
 
 	t.Run("returns 404 when device not found", func(t *testing.T) {
 		router, testPool := setupDeviceTestRouter()
-		testPool.Add("test-server")
+		testPool.Add("test-server", integration.NetworkServerConfig{Type: integration.NetworkServerTypeGeneric})
 
 		req, _ := http.NewRequest("GET", "/network-servers/test-server/devices/0102030405060708", nil)
 		w := httptest.NewRecorder()
@@ -273,7 +274,7 @@ func TestGetDeviceByEUI(t *testing.T) {
 
 	t.Run("returns 400 when EUI format is invalid", func(t *testing.T) {
 		router, testPool := setupDeviceTestRouter()
-		testPool.Add("test-server")
+		testPool.Add("test-server", integration.NetworkServerConfig{Type: integration.NetworkServerTypeGeneric})
 
 		req, _ := http.NewRequest("GET", "/network-servers/test-server/devices/invalid-eui", nil)
 		w := httptest.NewRecorder()
@@ -301,7 +302,7 @@ func TestGetDeviceByEUI(t *testing.T) {
 func TestDelDevice(t *testing.T) {
 	t.Run("deletes device successfully", func(t *testing.T) {
 		router, testPool := setupDeviceTestRouter()
-		ns, _ := testPool.Add("test-server")
+		ns, _ := testPool.Add("test-server", integration.NetworkServerConfig{Type: integration.NetworkServerTypeGeneric})
 
 		devEUI := lorawan.EUI64{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}
 		joinEUI := lorawan.EUI64{0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff, 0x00, 0x11}
@@ -321,7 +322,7 @@ func TestDelDevice(t *testing.T) {
 
 	t.Run("returns 404 when device not found", func(t *testing.T) {
 		router, testPool := setupDeviceTestRouter()
-		testPool.Add("test-server")
+		testPool.Add("test-server", integration.NetworkServerConfig{Type: integration.NetworkServerTypeGeneric})
 
 		req, _ := http.NewRequest("DELETE", "/network-servers/test-server/devices/0102030405060708", nil)
 		w := httptest.NewRecorder()
@@ -337,7 +338,7 @@ func TestDelDevice(t *testing.T) {
 
 	t.Run("returns 400 when EUI format is invalid", func(t *testing.T) {
 		router, testPool := setupDeviceTestRouter()
-		testPool.Add("test-server")
+		testPool.Add("test-server", integration.NetworkServerConfig{Type: integration.NetworkServerTypeGeneric})
 
 		req, _ := http.NewRequest("DELETE", "/network-servers/test-server/devices/invalid-eui", nil)
 		w := httptest.NewRecorder()
@@ -365,7 +366,7 @@ func TestDelDevice(t *testing.T) {
 func TestIntegration_DeviceWorkflow(t *testing.T) {
 	t.Run("complete CRUD workflow for devices", func(t *testing.T) {
 		router, testPool := setupDeviceTestRouter()
-		testPool.Add("test-server")
+		testPool.Add("test-server", integration.NetworkServerConfig{Type: integration.NetworkServerTypeGeneric})
 
 		// 1. List devices - should be empty
 		req, _ := http.NewRequest("GET", "/network-servers/test-server/devices", nil)
@@ -425,8 +426,8 @@ func TestIntegration_DeviceWorkflow(t *testing.T) {
 
 	t.Run("device operations isolated per network server", func(t *testing.T) {
 		router, testPool := setupDeviceTestRouter()
-		testPool.Add("server-1")
-		testPool.Add("server-2")
+		testPool.Add("server-1", integration.NetworkServerConfig{Type: integration.NetworkServerTypeGeneric})
+		testPool.Add("server-2", integration.NetworkServerConfig{Type: integration.NetworkServerTypeGeneric})
 
 		// Add device to server-1
 		body := map[string]string{

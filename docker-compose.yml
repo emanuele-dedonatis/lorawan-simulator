@@ -1,11 +1,11 @@
 version: '3.8'
 
 services:
-  lorawan-simulator:
+  backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: lorawan-simulator
+    container_name: lorawan-simulator-backend
     network_mode: host
     restart: unless-stopped
     healthcheck:
@@ -19,8 +19,8 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    container_name: lorawan-frontend
+    container_name: lorawan-simulator-frontend
     network_mode: host
     depends_on:
-      - lorawan-simulator
+      - backend
     restart: unless-stopped

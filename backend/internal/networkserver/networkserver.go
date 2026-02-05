@@ -7,12 +7,15 @@ import (
 
 	"github.com/emanuele-dedonatis/lorawan-simulator/internal/device"
 	"github.com/emanuele-dedonatis/lorawan-simulator/internal/gateway"
+	"github.com/emanuele-dedonatis/lorawan-simulator/internal/integration"
 
 	"github.com/brocaar/lorawan"
 )
 
 type NetworkServer struct {
 	name              string
+	config            integration.NetworkServerConfig
+	integrationClient integration.IntegrationClient
 	devices           map[lorawan.EUI64]*device.Device
 	gateways          map[lorawan.EUI64]*gateway.Gateway
 	mu                sync.RWMutex
@@ -21,14 +24,22 @@ type NetworkServer struct {
 }
 
 type NetworkServerInfo struct {
-	Name         string `json:"name"`
-	DeviceCount  int    `json:"deviceCount"`
-	GatewayCount int    `json:"gatewayCount"`
+	Name         string                          `json:"name"`
+	Config       integration.NetworkServerConfig `json:"config"`
+	DeviceCount  int                             `json:"deviceCount"`
+	GatewayCount int                             `json:"gatewayCount"`
 }
 
-func New(name string, broadcastUplink chan<- lorawan.PHYPayload, broadcastDownlink chan<- lorawan.PHYPayload) *NetworkServer {
+func New(name string, config integration.NetworkServerConfig, broadcastUplink chan<- lorawan.PHYPayload, broadcastDownlink chan<- lorawan.PHYPayload) *NetworkServer {
+	integrationClient, err := integration.NewIntegrationClient(config)
+	if err != nil {
+		return nil
+	}
+
 	return &NetworkServer{
 		name:              name,
+		config:            config,
+		integrationClient: integrationClient,
 		devices:           make(map[lorawan.EUI64]*device.Device),
 		gateways:          make(map[lorawan.EUI64]*gateway.Gateway),
 		broadcastUplink:   broadcastUplink,
@@ -42,6 +53,7 @@ func (ns *NetworkServer) GetInfo() NetworkServerInfo {
 
 	return NetworkServerInfo{
 		Name:         ns.name,
+		Config:       ns.config,
 		DeviceCount:  len(ns.devices),
 		GatewayCount: len(ns.gateways),
 	}
@@ -243,6 +255,53 @@ func (ns *NetworkServer) SendUplink(DevEUI lorawan.EUI64) error {
 	_, err := device.Uplink()
 	if err != nil {
 		return err
+	}
+
+	return nil
+}
+
+// Sync syncs gateways and devices from the remote network server
+func (ns *NetworkServer) Sync() error {
+
+	nsGws, err := ns.integrationClient.ListGateways()
+	if err != nil {
+		return err
+	}
+
+	// Collect gateways to remove and to add
+	ns.mu.RLock()
+	var gwsToRemove, gwsToAdd []gateway.GatewayInfo
+	for _, nsGw := range nsGws {
+		gw, exists := ns.gateways[nsGw.EUI]
+		if exists {
+			// Gateway already exists
+			if gw.GetInfo().DiscoveryURI == nsGw.DiscoveryURI {
+				// Nothing to update
+				log.Printf("[%s] gateway %s already exists", ns.name, nsGw.EUI)
+				continue
+			} else {
+				// Remove current gateway
+				log.Printf("[%s] gateway %s exists but with different discovery URI", ns.name, nsGw.EUI)
+				gwsToRemove = append(gwsToRemove, nsGw)
+			}
+		}
+
+		log.Printf("[%s] new gateway %s", ns.name, nsGw.EUI)
+		gwsToAdd = append(gwsToAdd, nsGw)
+	}
+	ns.mu.RUnlock()
+
+	for _, gw := range gwsToRemove {
+		err := ns.RemoveGateway(gw.EUI)
+		if err != nil {
+			log.Printf("[%s] unable to remove gateway %s: %v", ns.name, gw.EUI, err)
+		}
+	}
+	for _, gw := range gwsToAdd {
+		_, err := ns.AddGateway(gw.EUI, gw.DiscoveryURI)
+		if err != nil {
+			log.Printf("[%s] unable to add gateway %s: %v", ns.name, gw.EUI, err)
+		}
 	}
 
 	return nil

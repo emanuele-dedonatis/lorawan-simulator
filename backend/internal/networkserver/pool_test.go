@@ -4,6 +4,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/emanuele-dedonatis/lorawan-simulator/internal/integration"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -21,8 +22,11 @@ func TestPool_Add(t *testing.T) {
 	t.Run("adds new network server successfully", func(t *testing.T) {
 		p := NewPool()
 		name := "test-server"
+		config := integration.NetworkServerConfig{
+			Type: integration.NetworkServerTypeGeneric,
+		}
 
-		ns, err := p.Add(name)
+		ns, err := p.Add(name, config)
 
 		assert.NoError(t, err)
 		assert.NotNil(t, ns)
@@ -33,12 +37,15 @@ func TestPool_Add(t *testing.T) {
 	t.Run("returns error when adding duplicate network server", func(t *testing.T) {
 		p := NewPool()
 		name := "test-server"
+		config := integration.NetworkServerConfig{
+			Type: integration.NetworkServerTypeGeneric,
+		}
 
-		ns1, err1 := p.Add(name)
+		ns1, err1 := p.Add(name, config)
 		assert.NoError(t, err1)
 		assert.NotNil(t, ns1)
 
-		ns2, err2 := p.Add(name)
+		ns2, err2 := p.Add(name, config)
 		assert.Error(t, err2)
 		assert.Nil(t, ns2)
 		assert.Equal(t, "network server already exists", err2.Error())
@@ -47,10 +54,13 @@ func TestPool_Add(t *testing.T) {
 
 	t.Run("adds multiple different network servers", func(t *testing.T) {
 		p := NewPool()
+		config := integration.NetworkServerConfig{
+			Type: integration.NetworkServerTypeGeneric,
+		}
 
-		ns1, err1 := p.Add("server-1")
-		ns2, err2 := p.Add("server-2")
-		ns3, err3 := p.Add("server-3")
+		ns1, err1 := p.Add("server-1", config)
+		ns2, err2 := p.Add("server-2", config)
+		ns3, err3 := p.Add("server-3", config)
 
 		assert.NoError(t, err1)
 		assert.NoError(t, err2)
@@ -66,7 +76,7 @@ func TestPool_Get(t *testing.T) {
 	t.Run("gets existing network server", func(t *testing.T) {
 		p := NewPool()
 		name := "test-server"
-		p.Add(name)
+		p.Add(name, integration.NetworkServerConfig{Type: integration.NetworkServerTypeGeneric})
 
 		ns, err := p.Get(name)
 
@@ -87,9 +97,9 @@ func TestPool_Get(t *testing.T) {
 
 	t.Run("gets correct server from multiple servers", func(t *testing.T) {
 		p := NewPool()
-		p.Add("server-1")
-		p.Add("server-2")
-		p.Add("server-3")
+		p.Add("server-1", integration.NetworkServerConfig{Type: integration.NetworkServerTypeGeneric})
+		p.Add("server-2", integration.NetworkServerConfig{Type: integration.NetworkServerTypeGeneric})
+		p.Add("server-3", integration.NetworkServerConfig{Type: integration.NetworkServerTypeGeneric})
 
 		ns, err := p.Get("server-2")
 
@@ -111,9 +121,9 @@ func TestPool_List(t *testing.T) {
 
 	t.Run("returns all network servers info", func(t *testing.T) {
 		p := NewPool()
-		p.Add("server-1")
-		p.Add("server-2")
-		p.Add("server-3")
+		p.Add("server-1", integration.NetworkServerConfig{Type: integration.NetworkServerTypeGeneric})
+		p.Add("server-2", integration.NetworkServerConfig{Type: integration.NetworkServerTypeGeneric})
+		p.Add("server-3", integration.NetworkServerConfig{Type: integration.NetworkServerTypeGeneric})
 
 		list := p.List()
 
@@ -135,9 +145,9 @@ func TestPool_List(t *testing.T) {
 
 	t.Run("list reflects current state after add and remove", func(t *testing.T) {
 		p := NewPool()
-		p.Add("server-1")
-		p.Add("server-2")
-		p.Add("server-3")
+		p.Add("server-1", integration.NetworkServerConfig{Type: integration.NetworkServerTypeGeneric})
+		p.Add("server-2", integration.NetworkServerConfig{Type: integration.NetworkServerTypeGeneric})
+		p.Add("server-3", integration.NetworkServerConfig{Type: integration.NetworkServerTypeGeneric})
 
 		list1 := p.List()
 		assert.Equal(t, 3, len(list1))
@@ -163,7 +173,7 @@ func TestPool_Remove(t *testing.T) {
 	t.Run("removes existing network server", func(t *testing.T) {
 		p := NewPool()
 		name := "test-server"
-		p.Add(name)
+		p.Add(name, integration.NetworkServerConfig{Type: integration.NetworkServerTypeGeneric})
 
 		p.Remove(name)
 
@@ -185,9 +195,9 @@ func TestPool_Remove(t *testing.T) {
 
 	t.Run("removes one server from multiple servers", func(t *testing.T) {
 		p := NewPool()
-		p.Add("server-1")
-		p.Add("server-2")
-		p.Add("server-3")
+		p.Add("server-1", integration.NetworkServerConfig{Type: integration.NetworkServerTypeGeneric})
+		p.Add("server-2", integration.NetworkServerConfig{Type: integration.NetworkServerTypeGeneric})
+		p.Add("server-3", integration.NetworkServerConfig{Type: integration.NetworkServerTypeGeneric})
 
 		p.Remove("server-2")
 
@@ -214,7 +224,7 @@ func TestPool_Concurrency(t *testing.T) {
 			go func(id int) {
 				defer wg.Done()
 				name := string(rune('a' + id))
-				p.Add(name)
+				p.Add(name, integration.NetworkServerConfig{Type: integration.NetworkServerTypeGeneric})
 			}(i)
 		}
 
@@ -231,7 +241,7 @@ func TestPool_Concurrency(t *testing.T) {
 
 		// Pre-populate with some servers
 		for i := 0; i < 10; i++ {
-			p.Add(string(rune('a' + i)))
+			p.Add(string(rune('a'+i)), integration.NetworkServerConfig{Type: integration.NetworkServerTypeGeneric})
 		}
 
 		// Concurrent reads
@@ -250,7 +260,7 @@ func TestPool_Concurrency(t *testing.T) {
 			go func(id int) {
 				defer wg.Done()
 				name := string(rune('k' + id))
-				p.Add(name)
+				p.Add(name, integration.NetworkServerConfig{Type: integration.NetworkServerTypeGeneric})
 			}(i)
 		}
 
@@ -267,7 +277,7 @@ func TestPool_Concurrency(t *testing.T) {
 
 		// Pre-populate
 		for i := 0; i < numServers; i++ {
-			p.Add(string(rune('a' + i)))
+			p.Add(string(rune('a'+i)), integration.NetworkServerConfig{Type: integration.NetworkServerTypeGeneric})
 		}
 
 		// Concurrent removes

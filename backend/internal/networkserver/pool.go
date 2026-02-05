@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"github.com/brocaar/lorawan"
+	"github.com/emanuele-dedonatis/lorawan-simulator/internal/integration"
 )
 
 type Pool struct {
@@ -63,7 +64,7 @@ func (p *Pool) Get(name string) (*NetworkServer, error) {
 	return ns, nil
 }
 
-func (p *Pool) Add(name string) (*NetworkServer, error) {
+func (p *Pool) Add(name string, config integration.NetworkServerConfig) (*NetworkServer, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
@@ -71,7 +72,14 @@ func (p *Pool) Add(name string) (*NetworkServer, error) {
 		return nil, errors.New("network server already exists")
 	}
 
-	p.ns[name] = New(name, p.broadcastUplink, p.broadcastDownlink)
+	p.ns[name] = New(name, config, p.broadcastUplink, p.broadcastDownlink)
+
+	// Sync gateways and devices
+	err := p.ns[name].Sync()
+	if err != nil {
+		return nil, err
+	}
+
 	return p.ns[name], nil
 }
 

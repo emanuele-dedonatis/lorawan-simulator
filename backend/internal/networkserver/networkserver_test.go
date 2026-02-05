@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/brocaar/lorawan"
+	"github.com/emanuele-dedonatis/lorawan-simulator/internal/integration"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -11,7 +12,10 @@ import (
 func newTestNetworkServer(name string) *NetworkServer {
 	uplinkCh := make(chan lorawan.PHYPayload, 10)
 	downlinkCh := make(chan lorawan.PHYPayload, 10)
-	return New(name, uplinkCh, downlinkCh)
+	config := integration.NetworkServerConfig{
+		Type: integration.NetworkServerTypeGeneric,
+	}
+	return New(name, config, uplinkCh, downlinkCh)
 }
 
 func TestNew(t *testing.T) {
@@ -19,7 +23,10 @@ func TestNew(t *testing.T) {
 		name := "my-network-server"
 		uplinkCh := make(chan lorawan.PHYPayload)
 		downlinkCh := make(chan lorawan.PHYPayload)
-		ns := New(name, uplinkCh, downlinkCh)
+		config := integration.NetworkServerConfig{
+			Type: integration.NetworkServerTypeGeneric,
+		}
+		ns := New(name, config, uplinkCh, downlinkCh)
 
 		assert.NotNil(t, ns)
 		assert.Equal(t, name, ns.name)
@@ -33,11 +40,14 @@ func TestNew(t *testing.T) {
 		name1 := "server-1"
 		uplinkCh1 := make(chan lorawan.PHYPayload)
 		downlinkCh1 := make(chan lorawan.PHYPayload)
-		ns1 := New(name1, uplinkCh1, downlinkCh1)
+		config := integration.NetworkServerConfig{
+			Type: integration.NetworkServerTypeGeneric,
+		}
+		ns1 := New(name1, config, uplinkCh1, downlinkCh1)
 		name2 := "server-2"
 		uplinkCh2 := make(chan lorawan.PHYPayload)
 		downlinkCh2 := make(chan lorawan.PHYPayload)
-		ns2 := New(name2, uplinkCh2, downlinkCh2)
+		ns2 := New(name2, config, uplinkCh2, downlinkCh2)
 
 		assert.NotEqual(t, ns1, ns2)
 		assert.Equal(t, name1, ns1.name)

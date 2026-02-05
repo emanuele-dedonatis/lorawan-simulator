@@ -206,11 +206,12 @@ func TestLnsDiscovery_EUIFormatting(t *testing.T) {
 		}
 		json.Unmarshal(msg, &routerMsg)
 
-		// Verify EUI format is HH-HH-HH-HH-HH-HH-HH-HH
-		assert.Regexp(t, `^[0-9a-f]{2}-[0-9a-f]{2}-[0-9a-f]{2}-[0-9a-f]{2}-[0-9a-f]{2}-[0-9a-f]{2}-[0-9a-f]{2}-[0-9a-f]{2}$`, routerMsg.Router)
+		// Verify EUI format is ID6 format (colon-separated 16-bit blocks)
+		// Format: HHHH:HHHH:HHHH:HHHH where H is hex digit
+		assert.Regexp(t, `^[0-9a-f]{1,4}:[0-9a-f]{1,4}:[0-9a-f]{1,4}:[0-9a-f]{1,4}$`, routerMsg.Router)
 
-		// For EUI aa:bb:cc:dd:ee:ff:00:11, expect aa-bb-cc-dd-ee-ff-00-11
-		assert.Equal(t, "aa-bb-cc-dd-ee-ff-00-11", routerMsg.Router)
+		// For EUI aa:bb:cc:dd:ee:ff:00:11, expect aabb:ccdd:eeff:11 (ID6 format)
+		assert.Equal(t, "aabb:ccdd:eeff:11", routerMsg.Router)
 
 		// Send response
 		response := map[string]string{

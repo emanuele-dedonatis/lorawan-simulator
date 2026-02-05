@@ -102,9 +102,16 @@ function renderServers() {
                 <div class="server-header" onclick="toggleServer('${server.name}')">
                     <span class="chevron ${isExpanded ? 'expanded' : ''}">▶</span>
                     <span style="flex: 1;">${server.name}</span>
+                    <span class="server-type-badge">${server.config?.type || 'generic'}</span>
                     <button class="icon-button" onclick="event.stopPropagation(); deleteNetworkServer('${server.name}')" title="Delete Server">×</button>
                 </div>
                 <div class="server-content ${isExpanded ? 'expanded' : ''}">
+                    ${server.config?.url ? `
+                        <div class="server-config-info">
+                            <span>URL: ${server.config.url}</span>
+                            <button class="icon-button icon-button-small" onclick="syncNetworkServer('${server.name}')" title="Sync with Network Server">↻</button>
+                        </div>
+                    ` : ''}
                     <div class="subsection">
                         <div class="subsection-header" onclick="toggleGateways('${server.name}')">
                             <span class="chevron ${expandedGateways.has(server.name) ? 'expanded' : ''}">▶</span>
@@ -249,8 +256,19 @@ function showAddServerModal() {
     modalTitle.textContent = 'Add Network Server';
     
     modalBody.innerHTML = `
+        <label>Network Server Type</label>
+        <select id="server-type" onchange="updateServerTypeFields()">
+            <option value="generic">Generic</option>
+            <option value="loriot">LORIOT</option>
+            <option value="chirpstack">ChirpStack</option>
+            <option value="ttn">The Things Network (TTN)</option>
+        </select>
+
         <label>Server Name</label>
-        <input type="text" id="server-name" placeholder="my-server" onkeypress="if(event.key==='Enter')createServer()">
+        <input type="text" id="server-name" placeholder="my-server">
+        
+        <div id="server-type-fields"></div>
+        
         <div class="modal-actions">
             <button onclick="closeModal()" class="btn btn-secondary">Cancel</button>
             <button onclick="createServer()" class="btn btn-primary">Create</button>
@@ -264,6 +282,38 @@ function showAddServerModal() {
     }, 0);
 }
 
+function updateServerTypeFields() {
+    const serverType = document.getElementById('server-type').value;
+    const fieldsContainer = document.getElementById('server-type-fields');
+    
+    let fieldsHTML = '';
+    
+    if (serverType === 'loriot') {
+        fieldsHTML = `
+            <label>URL</label>
+            <input type="text" id="server-url" placeholder="https://eu1.loriot.io">
+            <label>Authorization Header</label>
+            <input type="text" id="server-auth" placeholder="Bearer your-token-here">
+        `;
+    } else if (serverType === 'chirpstack') {
+        fieldsHTML = `
+            <label>URL</label>
+            <input type="text" id="server-url" placeholder="https://chirpstack.example.com">
+            <label>API Token</label>
+            <input type="text" id="server-token" placeholder="your-api-token">
+        `;
+    } else if (serverType === 'ttn') {
+        fieldsHTML = `
+            <label>URL</label>
+            <input type="text" id="server-url" placeholder="https://eu1.cloud.thethings.network">
+            <label>API Key</label>
+            <input type="text" id="server-apikey" placeholder="your-api-key">
+        `;
+    }
+    
+    fieldsContainer.innerHTML = fieldsHTML;
+}
+
 function closeModal() {
     document.getElementById('modal').classList.remove('show');
 }
@@ -271,17 +321,74 @@ function closeModal() {
 // API Actions
 async function createServer() {
     const name = document.getElementById('server-name').value.trim();
-    if (!name) return;
+    const serverType = document.getElementById('server-type').value;
+    
+    if (!name) {
+        alert('Please enter a server name');
+        return;
+    }
+    
+    const config = {
+        type: serverType
+    };
+    
+    // Add type-specific fields
+    if (serverType === 'loriot') {
+        const url = document.getElementById('server-url')?.value.trim();
+        const authHeader = document.getElementById('server-auth')?.value.trim();
+        
+        if (!url || !authHeader) {
+            alert('Please fill in all LORIOT fields');
+            return;
+        }
+        
+        config.url = url;
+        config.authHeader = authHeader;
+    } else if (serverType === 'chirpstack') {
+        const url = document.getElementById('server-url')?.value.trim();
+        const apiToken = document.getElementById('server-token')?.value.trim();
+        
+        if (!url || !apiToken) {
+            alert('Please fill in all ChirpStack fields');
+            return;
+        }
+        
+        config.url = url;
+        config.apiToken = apiToken;
+    } else if (serverType === 'ttn') {
+        const url = document.getElementById('server-url')?.value.trim();
+        const apiKey = document.getElementById('server-apikey')?.value.trim();
+        
+        if (!url || !apiKey) {
+            alert('Please fill in all TTN fields');
+            return;
+        }
+        
+        config.url = url;
+        config.apiKey = apiKey;
+    }
     
     try {
         await fetchAPI('/network-servers', {
             method: 'POST',
-            body: JSON.stringify({ name })
+            body: JSON.stringify({ name, config })
         });
         closeModal();
         await refreshData();
     } catch (err) {
         alert('Error creating server: ' + err.message);
+    }
+}
+
+async function syncNetworkServer(serverName) {
+    try {
+        await fetchAPI(`/network-servers/${serverName}/sync`, {
+            method: 'POST'
+        });
+        await refreshData();
+        alert(`Successfully synced ${serverName}`);
+    } catch (err) {
+        alert('Error syncing network server: ' + err.message);
     }
 }
 

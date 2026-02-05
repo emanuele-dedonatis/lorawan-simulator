@@ -1,6 +1,7 @@
 package api
 
 import (
+        "github.com/emanuele-dedonatis/lorawan-simulator/internal/integration"
 	"bytes"
 	"encoding/json"
 	"net/http"
@@ -56,7 +57,7 @@ func setupGatewayTestRouter() (*gin.Engine, *networkserver.Pool) {
 func TestGetGateways(t *testing.T) {
 	t.Run("returns empty list when no gateways", func(t *testing.T) {
 		router, testPool := setupGatewayTestRouter()
-		testPool.Add("test-server")
+		testPool.Add("test-server", integration.NetworkServerConfig{Type: integration.NetworkServerTypeGeneric})
 
 		req, _ := http.NewRequest("GET", "/network-servers/test-server/gateways", nil)
 		w := httptest.NewRecorder()
@@ -72,7 +73,7 @@ func TestGetGateways(t *testing.T) {
 
 	t.Run("returns list of gateways", func(t *testing.T) {
 		router, testPool := setupGatewayTestRouter()
-		ns, _ := testPool.Add("test-server")
+		ns, _ := testPool.Add("test-server", integration.NetworkServerConfig{Type: integration.NetworkServerTypeGeneric})
 
 		// Add some gateways
 		eui1 := lorawan.EUI64{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}
@@ -109,7 +110,7 @@ func TestGetGateways(t *testing.T) {
 func TestPostGateway(t *testing.T) {
 	t.Run("creates gateway successfully", func(t *testing.T) {
 		router, testPool := setupGatewayTestRouter()
-		testPool.Add("test-server")
+		testPool.Add("test-server", integration.NetworkServerConfig{Type: integration.NetworkServerTypeGeneric})
 
 		body := map[string]string{
 			"eui":          "0102030405060708",
@@ -133,7 +134,7 @@ func TestPostGateway(t *testing.T) {
 
 	t.Run("returns 409 when adding duplicate gateway", func(t *testing.T) {
 		router, testPool := setupGatewayTestRouter()
-		ns, _ := testPool.Add("test-server")
+		ns, _ := testPool.Add("test-server", integration.NetworkServerConfig{Type: integration.NetworkServerTypeGeneric})
 
 		eui := lorawan.EUI64{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}
 		ns.AddGateway(eui, "http://discovery.example.com")
@@ -159,7 +160,7 @@ func TestPostGateway(t *testing.T) {
 
 	t.Run("returns 400 when EUI is missing", func(t *testing.T) {
 		router, testPool := setupGatewayTestRouter()
-		testPool.Add("test-server")
+		testPool.Add("test-server", integration.NetworkServerConfig{Type: integration.NetworkServerTypeGeneric})
 
 		body := map[string]string{
 			"discoveryUri": "http://discovery.example.com",
@@ -176,7 +177,7 @@ func TestPostGateway(t *testing.T) {
 
 	t.Run("returns 400 when discoveryUri is missing", func(t *testing.T) {
 		router, testPool := setupGatewayTestRouter()
-		testPool.Add("test-server")
+		testPool.Add("test-server", integration.NetworkServerConfig{Type: integration.NetworkServerTypeGeneric})
 
 		body := map[string]string{
 			"eui": "0102030405060708",
@@ -193,7 +194,7 @@ func TestPostGateway(t *testing.T) {
 
 	t.Run("returns 400 when EUI format is invalid", func(t *testing.T) {
 		router, testPool := setupGatewayTestRouter()
-		testPool.Add("test-server")
+		testPool.Add("test-server", integration.NetworkServerConfig{Type: integration.NetworkServerTypeGeneric})
 
 		body := map[string]string{
 			"eui":          "invalid-eui",
@@ -216,7 +217,7 @@ func TestPostGateway(t *testing.T) {
 
 	t.Run("returns 400 when JSON is invalid", func(t *testing.T) {
 		router, testPool := setupGatewayTestRouter()
-		testPool.Add("test-server")
+		testPool.Add("test-server", integration.NetworkServerConfig{Type: integration.NetworkServerTypeGeneric})
 
 		invalidJSON := []byte(`{"eui": invalid}`)
 
@@ -249,7 +250,7 @@ func TestPostGateway(t *testing.T) {
 func TestGetGatewayByEUI(t *testing.T) {
 	t.Run("returns gateway when it exists", func(t *testing.T) {
 		router, testPool := setupGatewayTestRouter()
-		ns, _ := testPool.Add("test-server")
+		ns, _ := testPool.Add("test-server", integration.NetworkServerConfig{Type: integration.NetworkServerTypeGeneric})
 
 		eui := lorawan.EUI64{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}
 		ns.AddGateway(eui, "http://discovery.example.com")
@@ -269,7 +270,7 @@ func TestGetGatewayByEUI(t *testing.T) {
 
 	t.Run("returns 404 when gateway not found", func(t *testing.T) {
 		router, testPool := setupGatewayTestRouter()
-		testPool.Add("test-server")
+		testPool.Add("test-server", integration.NetworkServerConfig{Type: integration.NetworkServerTypeGeneric})
 
 		req, _ := http.NewRequest("GET", "/network-servers/test-server/gateways/0102030405060708", nil)
 		w := httptest.NewRecorder()
@@ -285,7 +286,7 @@ func TestGetGatewayByEUI(t *testing.T) {
 
 	t.Run("returns 400 when EUI format is invalid", func(t *testing.T) {
 		router, testPool := setupGatewayTestRouter()
-		testPool.Add("test-server")
+		testPool.Add("test-server", integration.NetworkServerConfig{Type: integration.NetworkServerTypeGeneric})
 
 		req, _ := http.NewRequest("GET", "/network-servers/test-server/gateways/invalid-eui", nil)
 		w := httptest.NewRecorder()
@@ -313,7 +314,7 @@ func TestGetGatewayByEUI(t *testing.T) {
 func TestDelGateway(t *testing.T) {
 	t.Run("deletes gateway successfully", func(t *testing.T) {
 		router, testPool := setupGatewayTestRouter()
-		ns, _ := testPool.Add("test-server")
+		ns, _ := testPool.Add("test-server", integration.NetworkServerConfig{Type: integration.NetworkServerTypeGeneric})
 
 		eui := lorawan.EUI64{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}
 		ns.AddGateway(eui, "http://discovery.example.com")
@@ -331,7 +332,7 @@ func TestDelGateway(t *testing.T) {
 
 	t.Run("returns 404 when gateway not found", func(t *testing.T) {
 		router, testPool := setupGatewayTestRouter()
-		testPool.Add("test-server")
+		testPool.Add("test-server", integration.NetworkServerConfig{Type: integration.NetworkServerTypeGeneric})
 
 		req, _ := http.NewRequest("DELETE", "/network-servers/test-server/gateways/0102030405060708", nil)
 		w := httptest.NewRecorder()
@@ -347,7 +348,7 @@ func TestDelGateway(t *testing.T) {
 
 	t.Run("returns 400 when EUI format is invalid", func(t *testing.T) {
 		router, testPool := setupGatewayTestRouter()
-		testPool.Add("test-server")
+		testPool.Add("test-server", integration.NetworkServerConfig{Type: integration.NetworkServerTypeGeneric})
 
 		req, _ := http.NewRequest("DELETE", "/network-servers/test-server/gateways/invalid-eui", nil)
 		w := httptest.NewRecorder()
@@ -375,7 +376,7 @@ func TestDelGateway(t *testing.T) {
 func TestIntegration_GatewayWorkflow(t *testing.T) {
 	t.Run("complete CRUD workflow for gateways", func(t *testing.T) {
 		router, testPool := setupGatewayTestRouter()
-		testPool.Add("test-server")
+		testPool.Add("test-server", integration.NetworkServerConfig{Type: integration.NetworkServerTypeGeneric})
 
 		// 1. List gateways - should be empty
 		req, _ := http.NewRequest("GET", "/network-servers/test-server/gateways", nil)
@@ -431,7 +432,7 @@ func TestIntegration_GatewayWorkflow(t *testing.T) {
 
 	t.Run("multiple gateways are independent", func(t *testing.T) {
 		router, testPool := setupGatewayTestRouter()
-		testPool.Add("test-server")
+		testPool.Add("test-server", integration.NetworkServerConfig{Type: integration.NetworkServerTypeGeneric})
 
 		// Add multiple gateways
 		gateways := []map[string]string{
@@ -478,7 +479,7 @@ func TestConnectGateway(t *testing.T) {
 	t.Run("connects gateway successfully", func(t *testing.T) {
 		t.Skip("Skipping test that requires real WebSocket server")
 		router, testPool := setupGatewayTestRouter()
-		ns, _ := testPool.Add("test-server")
+		ns, _ := testPool.Add("test-server", integration.NetworkServerConfig{Type: integration.NetworkServerTypeGeneric})
 
 		eui := lorawan.EUI64{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}
 		ns.AddGateway(eui, "http://discovery.example.com")
@@ -492,7 +493,7 @@ func TestConnectGateway(t *testing.T) {
 
 	t.Run("returns 404 when gateway not found", func(t *testing.T) {
 		router, testPool := setupGatewayTestRouter()
-		testPool.Add("test-server")
+		testPool.Add("test-server", integration.NetworkServerConfig{Type: integration.NetworkServerTypeGeneric})
 
 		req, _ := http.NewRequest("POST", "/network-servers/test-server/gateways/0102030405060708/connect", nil)
 		w := httptest.NewRecorder()
@@ -508,7 +509,7 @@ func TestConnectGateway(t *testing.T) {
 
 	t.Run("returns 400 when EUI format is invalid", func(t *testing.T) {
 		router, testPool := setupGatewayTestRouter()
-		testPool.Add("test-server")
+		testPool.Add("test-server", integration.NetworkServerConfig{Type: integration.NetworkServerTypeGeneric})
 
 		req, _ := http.NewRequest("POST", "/network-servers/test-server/gateways/invalid-eui/connect", nil)
 		w := httptest.NewRecorder()
@@ -537,7 +538,7 @@ func TestDisconnectGateway(t *testing.T) {
 	t.Run("disconnects gateway successfully", func(t *testing.T) {
 		t.Skip("Skipping test that requires real WebSocket server")
 		router, testPool := setupGatewayTestRouter()
-		ns, _ := testPool.Add("test-server")
+		ns, _ := testPool.Add("test-server", integration.NetworkServerConfig{Type: integration.NetworkServerTypeGeneric})
 
 		eui := lorawan.EUI64{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}
 		ns.AddGateway(eui, "http://discovery.example.com")
@@ -558,7 +559,7 @@ func TestDisconnectGateway(t *testing.T) {
 
 	t.Run("returns 400 when already disconnected", func(t *testing.T) {
 		router, testPool := setupGatewayTestRouter()
-		ns, _ := testPool.Add("test-server")
+		ns, _ := testPool.Add("test-server", integration.NetworkServerConfig{Type: integration.NetworkServerTypeGeneric})
 
 		eui := lorawan.EUI64{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}
 		ns.AddGateway(eui, "http://discovery.example.com")
@@ -578,7 +579,7 @@ func TestDisconnectGateway(t *testing.T) {
 
 	t.Run("returns 404 when gateway not found", func(t *testing.T) {
 		router, testPool := setupGatewayTestRouter()
-		testPool.Add("test-server")
+		testPool.Add("test-server", integration.NetworkServerConfig{Type: integration.NetworkServerTypeGeneric})
 
 		req, _ := http.NewRequest("POST", "/network-servers/test-server/gateways/0102030405060708/disconnect", nil)
 		w := httptest.NewRecorder()
@@ -594,7 +595,7 @@ func TestDisconnectGateway(t *testing.T) {
 
 	t.Run("returns 400 when EUI format is invalid", func(t *testing.T) {
 		router, testPool := setupGatewayTestRouter()
-		testPool.Add("test-server")
+		testPool.Add("test-server", integration.NetworkServerConfig{Type: integration.NetworkServerTypeGeneric})
 
 		req, _ := http.NewRequest("POST", "/network-servers/test-server/gateways/invalid-eui/disconnect", nil)
 		w := httptest.NewRecorder()
@@ -623,7 +624,7 @@ func TestIntegration_GatewayConnectionWorkflow(t *testing.T) {
 	t.Run("complete connect and disconnect workflow", func(t *testing.T) {
 		t.Skip("Skipping test that requires real WebSocket server")
 		router, testPool := setupGatewayTestRouter()
-		ns, _ := testPool.Add("test-server")
+		ns, _ := testPool.Add("test-server", integration.NetworkServerConfig{Type: integration.NetworkServerTypeGeneric})
 
 		eui := lorawan.EUI64{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}
 		ns.AddGateway(eui, "http://discovery.example.com")

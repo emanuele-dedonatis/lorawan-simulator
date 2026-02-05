@@ -3,6 +3,7 @@ package api
 import (
 	"net/http"
 
+	"github.com/emanuele-dedonatis/lorawan-simulator/internal/integration"
 	"github.com/emanuele-dedonatis/lorawan-simulator/internal/networkserver"
 	"github.com/gin-gonic/gin"
 )
@@ -35,7 +36,8 @@ func getNetworkServers(c *gin.Context) {
 
 func postNetworkServer(c *gin.Context) {
 	var json struct {
-		Name string `json:"name" binding:"required"`
+		Name   string                            `json:"name" binding:"required"`
+		Config integration.NetworkServerConfig `json:"config"`
 	}
 
 	if err := c.Bind(&json); err != nil {
@@ -43,7 +45,7 @@ func postNetworkServer(c *gin.Context) {
 		return
 	}
 
-	ns, err := pool.Add(json.Name)
+	ns, err := pool.Add(json.Name, json.Config)
 	if err != nil {
 		c.IndentedJSON(http.StatusConflict, gin.H{"message": err.Error()})
 		return
@@ -64,6 +66,18 @@ func delNetworkServer(c *gin.Context) {
 
 	if err != nil {
 		c.IndentedJSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
+		return
+	}
+
+	c.IndentedJSON(http.StatusNoContent, nil)
+}
+
+func syncNetworkServersByName(c *gin.Context) {
+	ns := c.MustGet("networkServer").(*networkserver.NetworkServer)
+
+	err := ns.Sync()
+	if err != nil {
+		c.IndentedJSON(http.StatusBadRequest, gin.H{"message": err.Error()})
 		return
 	}
 

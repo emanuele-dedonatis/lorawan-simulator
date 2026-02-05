@@ -39,6 +39,9 @@ func Init(p *networkserver.Pool) {
 		// DELETE /network-servers/:name
 		ns.DELETE("", delNetworkServer)
 
+		// POST /network-servers/:name/sync
+		ns.POST("/sync", syncNetworkServersByName)
+
 		/*
 		 *	GATEWAYS
 		 */
