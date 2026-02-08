@@ -94,6 +94,7 @@ func (g *Gateway) lnsDiscovery() (string, error) {
 			Router string `json:"router"`
 			Muxs   string `json:"muxs"`
 			URI    string `json:"uri"`
+			Error  string `json:"error"`
 		}
 
 		if parseErr := json.Unmarshal(msg, &response); parseErr != nil {
@@ -101,6 +102,15 @@ func (g *Gateway) lnsDiscovery() (string, error) {
 			res <- discoveryResponse{
 				uri: "",
 				err: parseErr,
+			}
+			return
+		}
+
+		if response.Error != "" {
+			log.Printf("[%s] discovery response error: %s", g.eui, response.Error)
+			res <- discoveryResponse{
+				uri: "",
+				err: errors.New(response.Error),
 			}
 			return
 		}
