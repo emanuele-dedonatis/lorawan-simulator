@@ -294,8 +294,11 @@ func deriveSessionKey(typ byte, appKey lorawan.AES128Key, joinNonce lorawan.Join
 	binary.LittleEndian.PutUint32(joinNonceBytes, uint32(joinNonce))
 	copy(plaintext[1:4], joinNonceBytes[:3])
 
-	// Copy NetID (3 bytes)
-	copy(plaintext[4:7], netID[:])
+	// Copy NetID (3 bytes) - Need to reverse byte order for LoRaWAN 1.0.x
+	// The NetID from Join Accept is in MSB-first format, but key derivation needs LSB-first
+	plaintext[4] = netID[2]
+	plaintext[5] = netID[1]
+	plaintext[6] = netID[0]
 
 	// Convert DevNonce (uint16) to 2 bytes (little-endian)
 	devNonceBytes := make([]byte, 2)
