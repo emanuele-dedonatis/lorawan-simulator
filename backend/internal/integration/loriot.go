@@ -84,6 +84,11 @@ func (c *LORIOTClient) ListGateways() ([]gateway.GatewayInfo, error) {
 		}
 		resp.Body.Close()
 
+		if loriotResp.Total == 0 {
+			log.Printf("[LORIOT] no gateways found")
+			break
+		}
+		
 		// Convert LORIOT gateways to our format
 		for _, gw := range loriotResp.Gateways {
 			// Sync only Basics Station
