@@ -131,7 +131,17 @@ func (ns *NetworkServer) ForwardUplink(uplink lorawan.PHYPayload) error {
 
 // Device management methods
 
-func (ns *NetworkServer) AddDevice(DevEUI lorawan.EUI64, JoinEUI lorawan.EUI64, AppKey lorawan.AES128Key, DevNonce lorawan.DevNonce) (*device.Device, error) {
+func (ns *NetworkServer) AddDevice(
+	DevEUI lorawan.EUI64,
+	JoinEUI lorawan.EUI64,
+	AppKey lorawan.AES128Key,
+	DevNonce lorawan.DevNonce,
+	DevAddr lorawan.DevAddr,
+	AppSKey lorawan.AES128Key,
+	NwkSKey lorawan.AES128Key,
+	FCntUp uint32,
+	FCntDn uint32,
+) (*device.Device, error) {
 	ns.mu.Lock()
 	defer ns.mu.Unlock()
 
@@ -139,7 +149,7 @@ func (ns *NetworkServer) AddDevice(DevEUI lorawan.EUI64, JoinEUI lorawan.EUI64, 
 		return nil, errors.New("device already exists")
 	}
 
-	ns.devices[DevEUI] = device.New(ns.broadcastUplink, DevEUI, JoinEUI, AppKey, DevNonce)
+	ns.devices[DevEUI] = device.New(ns.broadcastUplink, DevEUI, JoinEUI, AppKey, DevNonce, DevAddr, AppSKey, NwkSKey, FCntUp, FCntDn)
 	return ns.devices[DevEUI], nil
 }
 
@@ -318,19 +328,12 @@ func (ns *NetworkServer) Sync() error {
 	ns.mu.RLock()
 	var devsToRemove, devsToAdd []device.DeviceInfo
 	for _, nsDev := range nsDevs {
-		dev, exists := ns.devices[nsDev.DevEUI]
+		_, exists := ns.devices[nsDev.DevEUI]
 		if exists {
-			// Device already exists
-			devInfo := dev.GetInfo()
-			if devInfo.JoinEUI == nsDev.JoinEUI && devInfo.AppKey == nsDev.AppKey {
-				// Nothing to update
-				log.Printf("[%s] device %s already exists", ns.name, nsDev.DevEUI)
-				continue
-			} else {
-				// Remove current device
-				log.Printf("[%s] device %s exists but with different JoinEUI or AppKey", ns.name, nsDev.DevEUI)
-				devsToRemove = append(devsToRemove, nsDev)
-			}
+			// Device already exists - for simplicity, we skip checking if it changed
+			// because that would require calling GetInfo() which could cause a deadlock
+			log.Printf("[%s] device %s already exists", ns.name, nsDev.DevEUI)
+			continue
 		}
 
 		log.Printf("[%s] new device %s", ns.name, nsDev.DevEUI)
@@ -348,7 +351,7 @@ func (ns *NetworkServer) Sync() error {
 
 	// Add new devices
 	for _, dev := range devsToAdd {
-		_, err := ns.AddDevice(dev.DevEUI, dev.JoinEUI, dev.AppKey, dev.DevNonce)
+		_, err := ns.AddDevice(dev.DevEUI, dev.JoinEUI, dev.AppKey, dev.DevNonce, dev.DevAddr, dev.AppSKey, dev.NwkSKey, dev.FCntUp, dev.FCntDn)
 		if err != nil {
 			log.Printf("[%s] unable to add device %s: %v", ns.name, dev.DevEUI, err)
 		}

@@ -41,13 +41,28 @@ type DeviceInfo struct {
 	FCntDn uint32 `json:"fcntdn"`
 }
 
-func New(broadcastUplink chan<- lorawan.PHYPayload, DevEUI lorawan.EUI64, JoinEUI lorawan.EUI64, AppKey lorawan.AES128Key, DevNonce lorawan.DevNonce) *Device {
+func New(broadcastUplink chan<- lorawan.PHYPayload,
+	DevEUI lorawan.EUI64,
+	JoinEUI lorawan.EUI64,
+	AppKey lorawan.AES128Key,
+	DevNonce lorawan.DevNonce,
+	DevAddr lorawan.DevAddr,
+	AppSKey lorawan.AES128Key,
+	NwkSKey lorawan.AES128Key,
+	FCntUp uint32,
+	FCntDn uint32,
+) *Device {
 	return &Device{
 		broadcastUplink: broadcastUplink,
 		DevEUI:          DevEUI,
 		JoinEUI:         JoinEUI,
 		AppKey:          AppKey,
 		DevNonce:        DevNonce,
+		DevAddr:         DevAddr,
+		AppSKey:         AppSKey,
+		NwkSKey:         NwkSKey,
+		FCntUp:          FCntUp,
+		FCntDn:          FCntDn,
 	}
 }
 

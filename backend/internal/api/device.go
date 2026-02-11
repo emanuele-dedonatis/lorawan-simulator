@@ -77,7 +77,7 @@ func postDevice(c *gin.Context) {
 		return
 	}
 
-	dev, err := ns.AddDevice(deveui, joineui, appkey, lorawan.DevNonce(json.DevNonce))
+	dev, err := ns.AddDevice(deveui, joineui, appkey, lorawan.DevNonce(json.DevNonce), lorawan.DevAddr{}, lorawan.AES128Key{}, lorawan.AES128Key{}, 0, 0)
 	if err != nil {
 		c.IndentedJSON(http.StatusConflict, gin.H{"message": err.Error()})
 		return
