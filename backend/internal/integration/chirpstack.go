@@ -99,8 +99,155 @@ func (c *ChirpStackClient) DeleteGateway(eui lorawan.EUI64) error {
 }
 
 func (c *ChirpStackClient) ListDevices() ([]device.DeviceInfo, error) {
-	// TODO
-	return []device.DeviceInfo{}, nil
+	conn, err := c.getConnection()
+	if err != nil {
+		return nil, err
+	}
+
+	ctx := c.getAuthContext()
+	var allDevices []device.DeviceInfo
+
+	// First, list all tenants
+	tenantClient := api.NewTenantServiceClient(conn)
+	var tenantOffset uint32 = 0
+	tenantLimit := uint32(100)
+
+	for {
+		tenantReq := &api.ListTenantsRequest{
+			Limit:  tenantLimit,
+			Offset: tenantOffset,
+		}
+
+		tenantResp, err := tenantClient.List(ctx, tenantReq)
+		if err != nil {
+			return nil, fmt.Errorf("failed to list tenants: %w", err)
+		}
+
+		// For each tenant, list all applications
+		appClient := api.NewApplicationServiceClient(conn)
+		for _, tenant := range tenantResp.Result {
+			log.Printf("[CHIRPSTACK] listing applications for tenant %s", tenant.Id)
+
+			var appOffset uint32 = 0
+			appLimit := uint32(100)
+
+			for {
+				appReq := &api.ListApplicationsRequest{
+					TenantId: tenant.Id,
+					Limit:    appLimit,
+					Offset:   appOffset,
+				}
+
+				appResp, err := appClient.List(ctx, appReq)
+				if err != nil {
+					log.Printf("[CHIRPSTACK] failed to list applications for tenant %s: %v", tenant.Id, err)
+					break
+				}
+
+				// For each application, list its devices
+				deviceClient := api.NewDeviceServiceClient(conn)
+				for _, app := range appResp.Result {
+					log.Printf("[CHIRPSTACK] listing devices for application %s", app.Id)
+
+					var devOffset uint32 = 0
+					devLimit := uint32(100)
+
+					// Paginate through devices in this application
+					for {
+						devReq := &api.ListDevicesRequest{
+							ApplicationId: app.Id,
+							Limit:         devLimit,
+							Offset:        devOffset,
+						}
+
+						devResp, err := deviceClient.List(ctx, devReq)
+						if err != nil {
+							log.Printf("[CHIRPSTACK] failed to list devices for application %s: %v", app.Id, err)
+							break
+						}
+
+						// Process each device
+						for _, dev := range devResp.Result {
+							// Parse DevEUI from device ID (ChirpStack stores as hex string)
+							var devEUI lorawan.EUI64
+							if err := devEUI.UnmarshalText([]byte(dev.DevEui)); err != nil {
+								log.Printf("[CHIRPSTACK] invalid device EUI %s: %v", dev.DevEui, err)
+								continue
+							}
+
+							// Get device details to retrieve JoinEUI
+							getReq := &api.GetDeviceRequest{
+								DevEui: dev.DevEui,
+							}
+							getResp, err := deviceClient.Get(ctx, getReq)
+							if err != nil {
+								log.Printf("[CHIRPSTACK] failed to get device details for %s: %v", dev.DevEui, err)
+								continue
+							}
+
+							// Parse JoinEUI
+							var joinEUI lorawan.EUI64
+							if err := joinEUI.UnmarshalText([]byte(getResp.Device.JoinEui)); err != nil {
+								log.Printf("[CHIRPSTACK] invalid JoinEUI %s for device %s: %v", getResp.Device.JoinEui, dev.DevEui, err)
+								continue
+							}
+
+							// Get device keys to retrieve AppKey
+							keysReq := &api.GetDeviceKeysRequest{
+								DevEui: dev.DevEui,
+							}
+							keysResp, err := deviceClient.GetKeys(ctx, keysReq)
+							if err != nil {
+								log.Printf("[CHIRPSTACK] failed to get device keys for %s: %v", dev.DevEui, err)
+								// Continue without AppKey - we'll set it to zero value
+							}
+
+							// Parse AppKey
+							var appKey lorawan.AES128Key
+							if keysResp != nil && keysResp.DeviceKeys != nil && keysResp.DeviceKeys.NwkKey != "" {
+								if err := appKey.UnmarshalText([]byte(keysResp.DeviceKeys.NwkKey)); err != nil {
+									log.Printf("[CHIRPSTACK] invalid AppKey for device %s: %v", dev.DevEui, err)
+								}
+							}
+
+							log.Printf("[CHIRPSTACK] found device %s", devEUI)
+							allDevices = append(allDevices, device.DeviceInfo{
+								DevEUI:  devEUI,
+								JoinEUI: joinEUI,
+								AppKey:  appKey,
+								// DevNonce, DevAddr, session keys, and frame counters are not available from ChirpStack API
+								// Device must join everytime
+							})
+						}
+
+						// Check if we've retrieved all devices for this application
+						if uint32(len(devResp.Result)) < devLimit {
+							break
+						}
+
+						devOffset += devLimit
+					}
+				}
+
+				// Check if we've retrieved all applications for this tenant
+				if uint32(len(appResp.Result)) < appLimit {
+					break
+				}
+
+				appOffset += appLimit
+			}
+		}
+
+		// Check if we've retrieved all tenants
+		if uint32(len(tenantResp.Result)) < tenantLimit {
+			break
+		}
+
+		tenantOffset += tenantLimit
+	}
+
+	log.Printf("[CHIRPSTACK] listed %d devices across all tenants and applications", len(allDevices))
+	return allDevices, nil
 }
 
 func (c *ChirpStackClient) CreateDevice(devEUI lorawan.EUI64, joinEUI lorawan.EUI64, appKey lorawan.AES128Key) error {

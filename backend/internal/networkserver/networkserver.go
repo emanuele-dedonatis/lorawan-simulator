@@ -263,6 +263,7 @@ func (ns *NetworkServer) SendUplink(DevEUI lorawan.EUI64) error {
 // Sync syncs gateways and devices from the remote network server
 func (ns *NetworkServer) Sync() error {
 
+	// Sync gateways
 	nsGws, err := ns.integrationClient.ListGateways()
 	if err != nil {
 		return err
@@ -291,16 +292,65 @@ func (ns *NetworkServer) Sync() error {
 	}
 	ns.mu.RUnlock()
 
+	// Remove not existing gateways
 	for _, gw := range gwsToRemove {
 		err := ns.RemoveGateway(gw.EUI)
 		if err != nil {
 			log.Printf("[%s] unable to remove gateway %s: %v", ns.name, gw.EUI, err)
 		}
 	}
+
+	// Add new gateways
 	for _, gw := range gwsToAdd {
 		_, err := ns.AddGateway(gw.EUI, gw.DiscoveryURI)
 		if err != nil {
 			log.Printf("[%s] unable to add gateway %s: %v", ns.name, gw.EUI, err)
+		}
+	}
+
+	// Sync devices
+	nsDevs, err := ns.integrationClient.ListDevices()
+	if err != nil {
+		return err
+	}
+
+	// Collect devices to remove and to add
+	ns.mu.RLock()
+	var devsToRemove, devsToAdd []device.DeviceInfo
+	for _, nsDev := range nsDevs {
+		dev, exists := ns.devices[nsDev.DevEUI]
+		if exists {
+			// Device already exists
+			devInfo := dev.GetInfo()
+			if devInfo.JoinEUI == nsDev.JoinEUI && devInfo.AppKey == nsDev.AppKey {
+				// Nothing to update
+				log.Printf("[%s] device %s already exists", ns.name, nsDev.DevEUI)
+				continue
+			} else {
+				// Remove current device
+				log.Printf("[%s] device %s exists but with different JoinEUI or AppKey", ns.name, nsDev.DevEUI)
+				devsToRemove = append(devsToRemove, nsDev)
+			}
+		}
+
+		log.Printf("[%s] new device %s", ns.name, nsDev.DevEUI)
+		devsToAdd = append(devsToAdd, nsDev)
+	}
+	ns.mu.RUnlock()
+
+	// Remove not existing devices
+	for _, dev := range devsToRemove {
+		err := ns.RemoveDevice(dev.DevEUI)
+		if err != nil {
+			log.Printf("[%s] unable to remove device %s: %v", ns.name, dev.DevEUI, err)
+		}
+	}
+
+	// Add new devices
+	for _, dev := range devsToAdd {
+		_, err := ns.AddDevice(dev.DevEUI, dev.JoinEUI, dev.AppKey, dev.DevNonce)
+		if err != nil {
+			log.Printf("[%s] unable to add device %s: %v", ns.name, dev.DevEUI, err)
 		}
 	}
 
