@@ -342,7 +342,7 @@ func TestLnsDataWriteLoop_SendsMessages(t *testing.T) {
 	}
 
 	// Verify version message was sent
-	assert.Contains(t, messages, `{"msgtype":"version","station":"lorawan-simulator","protocol":2}`)
+	assert.Contains(t, messages, `{"msgtype":"version","station":"lorawan-simulator","package":"github.com/emanuele-dedonatis/lorawan-simulator","protocol":2}`)
 	
 	// Verify the two join request messages were sent (just check that we got 3 messages total)
 	assert.Len(t, messages, 3)

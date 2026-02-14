@@ -339,9 +339,9 @@ func (ns *NetworkServer) Sync() error {
 		return err
 	}
 
-	// Collect devices to remove and to add
+	// Collect devices to add
 	ns.mu.RLock()
-	var devsToRemove, devsToAdd []device.DeviceInfo
+	var devsToAdd []device.DeviceInfo
 	for _, nsDev := range nsDevs {
 		_, exists := ns.devices[nsDev.DevEUI]
 		if exists {
@@ -356,13 +356,8 @@ func (ns *NetworkServer) Sync() error {
 	}
 	ns.mu.RUnlock()
 
-	// Remove not existing devices
-	for _, dev := range devsToRemove {
-		err := ns.RemoveDevice(dev.DevEUI)
-		if err != nil {
-			log.Printf("[%s] unable to remove device %s: %v", ns.name, dev.DevEUI, err)
-		}
-	}
+	// Note: Device removal is not implemented yet to avoid accidentally
+	// deleting devices that are temporarily not returned by the integration API
 
 	// Add new devices
 	for _, dev := range devsToAdd {

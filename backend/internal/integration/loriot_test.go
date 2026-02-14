@@ -31,9 +31,13 @@ func TestLORIOTClient_ListGateways_Pagination(t *testing.T) {
 
 			response := loriotGatewayResponse{
 				Gateways: []struct {
-					EUI  string `json:"EUI"`
-					Base string `json:"base"`
-				}{
+				EUI      string `json:"EUI"`
+				Base     string `json:"base"`
+				Location struct {
+					Lat float64 `json:"lat"`
+					Lon float64 `json:"lon"`
+				} `json:"location"`
+			}{
 					{EUI: "AA-BB-CC-DD-EE-FF-00-11", Base: "basics-station"},
 					{EUI: "00-0A-0F-FF-FF-26-0A-0D", Base: "pktfwd"}, // Should be filtered out
 					{EUI: "11-22-33-44-55-66-77-88", Base: "basics-station"},
@@ -76,9 +80,13 @@ func TestLORIOTClient_ListGateways_Pagination(t *testing.T) {
 			if page == "1" {
 				response = loriotGatewayResponse{
 					Gateways: []struct {
-						EUI  string `json:"EUI"`
-						Base string `json:"base"`
-					}{
+				EUI      string `json:"EUI"`
+				Base     string `json:"base"`
+				Location struct {
+					Lat float64 `json:"lat"`
+					Lon float64 `json:"lon"`
+				} `json:"location"`
+			}{
 						{EUI: "AA-BB-CC-DD-EE-FF-00-11", Base: "basics-station"},
 					},
 					Page:    1,
@@ -88,9 +96,13 @@ func TestLORIOTClient_ListGateways_Pagination(t *testing.T) {
 			} else if page == "2" {
 				response = loriotGatewayResponse{
 					Gateways: []struct {
-						EUI  string `json:"EUI"`
-						Base string `json:"base"`
-					}{
+				EUI      string `json:"EUI"`
+				Base     string `json:"base"`
+				Location struct {
+					Lat float64 `json:"lat"`
+					Lon float64 `json:"lon"`
+				} `json:"location"`
+			}{
 						{EUI: "00-0A-0F-FF-FF-26-0A-0D", Base: "basics-station"},
 					},
 					Page:    2,
@@ -124,9 +136,13 @@ func TestLORIOTClient_ListGateways_Pagination(t *testing.T) {
 
 			response := loriotGatewayResponse{
 				Gateways: []struct {
-					EUI  string `json:"EUI"`
-					Base string `json:"base"`
-				}{
+				EUI      string `json:"EUI"`
+				Base     string `json:"base"`
+				Location struct {
+					Lat float64 `json:"lat"`
+					Lon float64 `json:"lon"`
+				} `json:"location"`
+			}{
 					{EUI: "FC-C2-3D-FF-FE-0B-9F-98", Base: "basics-station"},
 				},
 				Page:    1,
@@ -159,9 +175,13 @@ func TestLORIOTClient_ListGateways_Pagination(t *testing.T) {
 
 			response := loriotGatewayResponse{
 				Gateways: []struct {
-					EUI  string `json:"EUI"`
-					Base string `json:"base"`
-				}{
+				EUI      string `json:"EUI"`
+				Base     string `json:"base"`
+				Location struct {
+					Lat float64 `json:"lat"`
+					Lon float64 `json:"lon"`
+				} `json:"location"`
+			}{
 					{EUI: "AA-BB-CC-DD-EE-FF-00-11", Base: "basics-station"},
 					{EUI: "INVALID", Base: "basics-station"},
 					{EUI: "00-0A-0F-FF-FF-26-0A-0D", Base: "basics-station"},
@@ -209,9 +229,13 @@ func TestLORIOTClient_ListGateways_Pagination(t *testing.T) {
 
 			response := loriotGatewayResponse{
 				Gateways: []struct {
-					EUI  string `json:"EUI"`
-					Base string `json:"base"`
-				}{},
+				EUI      string `json:"EUI"`
+				Base     string `json:"base"`
+				Location struct {
+					Lat float64 `json:"lat"`
+					Lon float64 `json:"lon"`
+				} `json:"location"`
+			}{},
 				Page:    1,
 				PerPage: 100,
 				Total:   0,

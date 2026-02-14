@@ -80,9 +80,9 @@ func TestGetDevices(t *testing.T) {
 		joinEUI := lorawan.EUI64{0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff, 0x00, 0x11}
 		appKey := lorawan.AES128Key{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10}
 
-		ns.AddDevice(devEUI1, joinEUI, appKey, 0)
-		ns.AddDevice(devEUI2, joinEUI, appKey, 0)
-		ns.AddDevice(devEUI3, joinEUI, appKey, 0)
+		ns.AddDevice(devEUI1, joinEUI, appKey, 0, lorawan.DevAddr{}, lorawan.AES128Key{}, lorawan.AES128Key{}, 0, 0, nil)
+		ns.AddDevice(devEUI2, joinEUI, appKey, 0, lorawan.DevAddr{}, lorawan.AES128Key{}, lorawan.AES128Key{}, 0, 0, nil)
+		ns.AddDevice(devEUI3, joinEUI, appKey, 0, lorawan.DevAddr{}, lorawan.AES128Key{}, lorawan.AES128Key{}, 0, 0, nil)
 
 		req, _ := http.NewRequest("GET", "/network-servers/test-server/devices", nil)
 		w := httptest.NewRecorder()
@@ -140,7 +140,7 @@ func TestPostDevice(t *testing.T) {
 		devEUI := lorawan.EUI64{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}
 		joinEUI := lorawan.EUI64{0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff, 0x00, 0x11}
 		appKey := lorawan.AES128Key{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10}
-		ns.AddDevice(devEUI, joinEUI, appKey, 0)
+		ns.AddDevice(devEUI, joinEUI, appKey, 0, lorawan.DevAddr{}, lorawan.AES128Key{}, lorawan.AES128Key{}, 0, 0, nil)
 
 		body := map[string]string{
 			"deveui":  "0102030405060708",
@@ -242,7 +242,7 @@ func TestGetDeviceByEUI(t *testing.T) {
 		devEUI := lorawan.EUI64{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}
 		joinEUI := lorawan.EUI64{0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff, 0x00, 0x11}
 		appKey := lorawan.AES128Key{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10}
-		ns.AddDevice(devEUI, joinEUI, appKey, 0)
+		ns.AddDevice(devEUI, joinEUI, appKey, 0, lorawan.DevAddr{}, lorawan.AES128Key{}, lorawan.AES128Key{}, 0, 0, nil)
 
 		req, _ := http.NewRequest("GET", "/network-servers/test-server/devices/0102030405060708", nil)
 		w := httptest.NewRecorder()
@@ -307,7 +307,7 @@ func TestDelDevice(t *testing.T) {
 		devEUI := lorawan.EUI64{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}
 		joinEUI := lorawan.EUI64{0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff, 0x00, 0x11}
 		appKey := lorawan.AES128Key{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10}
-		ns.AddDevice(devEUI, joinEUI, appKey, 0)
+		ns.AddDevice(devEUI, joinEUI, appKey, 0, lorawan.DevAddr{}, lorawan.AES128Key{}, lorawan.AES128Key{}, 0, 0, nil)
 
 		req, _ := http.NewRequest("DELETE", "/network-servers/test-server/devices/0102030405060708", nil)
 		w := httptest.NewRecorder()

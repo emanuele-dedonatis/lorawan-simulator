@@ -95,39 +95,39 @@ func (c *TTNClient) buildDiscoveryURI() string {
 		return ""
 	}
 
-	// Extract host
+	// Extract host (with port if present)
 	host := parsedURL.Host
 	if host == "" {
 		host = parsedURL.Path
 	}
-	// Remove port if present
-	if idx := strings.Index(host, ":"); idx > 0 {
-		host = host[:idx]
-	}
 
-	// Check if it's a standard TTN cloud URL (xx.cloud.thethings.network format)
-	parts := strings.Split(host, ".")
-	if len(parts) >= 4 && parts[1] == "cloud" && parts[2] == "thethings" && parts[3] == "network" {
-		// Standard TTN cloud URL - use the cluster hostname with WebSocket port
-		uri := "wss://" + host + ":8887"
-		log.Printf("[TTN] Discovery URI: %s", uri)
-		return uri
-	}
-
-	// Custom URL - convert scheme to websocket
+	// Determine scheme
 	scheme := parsedURL.Scheme
 	if scheme == "" {
 		scheme = "https" // Default to https
 	}
 
+	// Convert HTTP scheme to WebSocket scheme
 	wsScheme := "wss"
-	port := "8887"
+	defaultPort := "8887"
 	if scheme == "http" {
 		wsScheme = "ws"
-		port = "1887"
+		defaultPort = "1887"
 	}
 
-	uri := wsScheme + "://" + host + ":" + port
+	// Check if port is already in the host
+	hasPort := strings.Contains(host, ":")
+	
+	// Build URI
+	var uri string
+	if hasPort {
+		// Use the provided port
+		uri = wsScheme + "://" + host
+	} else {
+		// Add default port
+		uri = wsScheme + "://" + host + ":" + defaultPort
+	}
+
 	log.Printf("[TTN] Discovery URI: %s", uri)
 	return uri
 }

@@ -11,7 +11,7 @@ import (
 // Helper function to create a device with uplink channel for testing
 func newTestDevice(devEUI lorawan.EUI64, joinEUI lorawan.EUI64, appKey lorawan.AES128Key, devNonce lorawan.DevNonce) *Device {
 	uplinkCh := make(chan lorawan.PHYPayload, 10)
-	return New(uplinkCh, devEUI, joinEUI, appKey, devNonce)
+	return New(uplinkCh, devEUI, joinEUI, appKey, devNonce, lorawan.DevAddr{}, lorawan.AES128Key{}, lorawan.AES128Key{}, 0, 0)
 }
 
 func TestNew(t *testing.T) {

@@ -61,7 +61,7 @@ func TestNetworkServer_AddGateway(t *testing.T) {
 		eui := lorawan.EUI64{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}
 		discoveryURI := "wss://example.com:6887"
 
-		gw, err := ns.AddGateway(eui, discoveryURI)
+		gw, err := ns.AddGateway(eui, discoveryURI, nil, nil)
 
 		assert.NoError(t, err)
 		assert.NotNil(t, gw)
@@ -77,8 +77,8 @@ func TestNetworkServer_AddGateway(t *testing.T) {
 		eui := lorawan.EUI64{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}
 		discoveryURI := "wss://example.com:6887"
 
-		ns.AddGateway(eui, discoveryURI)
-		gw2, err := ns.AddGateway(eui, discoveryURI)
+		ns.AddGateway(eui, discoveryURI, nil, nil)
+		gw2, err := ns.AddGateway(eui, discoveryURI, nil, nil)
 
 		assert.Error(t, err)
 		assert.Nil(t, gw2)
@@ -90,8 +90,8 @@ func TestNetworkServer_AddGateway(t *testing.T) {
 		eui1 := lorawan.EUI64{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}
 		eui2 := lorawan.EUI64{0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18}
 
-		gw1, err1 := ns.AddGateway(eui1, "wss://gw1.com")
-		gw2, err2 := ns.AddGateway(eui2, "wss://gw2.com")
+		gw1, err1 := ns.AddGateway(eui1, "wss://gw1.com", nil, nil)
+		gw2, err2 := ns.AddGateway(eui2, "wss://gw2.com", nil, nil)
 
 		assert.NoError(t, err1)
 		assert.NoError(t, err2)
@@ -107,7 +107,7 @@ func TestNetworkServer_GetGateway(t *testing.T) {
 	t.Run("gets existing gateway", func(t *testing.T) {
 		ns := newTestNetworkServer("test-server")
 		eui := lorawan.EUI64{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}
-		ns.AddGateway(eui, "wss://example.com")
+		ns.AddGateway(eui, "wss://example.com", nil, nil)
 
 		gw, err := ns.GetGateway(eui)
 
@@ -144,9 +144,9 @@ func TestNetworkServer_ListGateways(t *testing.T) {
 		eui2 := lorawan.EUI64{0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18}
 		eui3 := lorawan.EUI64{0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28}
 
-		ns.AddGateway(eui1, "wss://gw1.com")
-		ns.AddGateway(eui2, "wss://gw2.com")
-		ns.AddGateway(eui3, "wss://gw3.com")
+		ns.AddGateway(eui1, "wss://gw1.com", nil, nil)
+		ns.AddGateway(eui2, "wss://gw2.com", nil, nil)
+		ns.AddGateway(eui3, "wss://gw3.com", nil, nil)
 
 		gateways := ns.ListGateways()
 
@@ -168,7 +168,7 @@ func TestNetworkServer_RemoveGateway(t *testing.T) {
 	t.Run("removes existing gateway", func(t *testing.T) {
 		ns := newTestNetworkServer("test-server")
 		eui := lorawan.EUI64{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}
-		ns.AddGateway(eui, "wss://example.com")
+		ns.AddGateway(eui, "wss://example.com", nil, nil)
 
 		err := ns.RemoveGateway(eui)
 
@@ -199,9 +199,9 @@ func TestNetworkServer_RemoveGateway(t *testing.T) {
 		eui2 := lorawan.EUI64{0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18}
 		eui3 := lorawan.EUI64{0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28}
 
-		ns.AddGateway(eui1, "wss://gw1.com")
-		ns.AddGateway(eui2, "wss://gw2.com")
-		ns.AddGateway(eui3, "wss://gw3.com")
+		ns.AddGateway(eui1, "wss://gw1.com", nil, nil)
+		ns.AddGateway(eui2, "wss://gw2.com", nil, nil)
+		ns.AddGateway(eui3, "wss://gw3.com", nil, nil)
 
 		err := ns.RemoveGateway(eui2)
 
@@ -229,8 +229,8 @@ func TestNetworkServer_GetInfo(t *testing.T) {
 		// Add gateways
 		eui1 := lorawan.EUI64{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}
 		eui2 := lorawan.EUI64{0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18}
-		ns.AddGateway(eui1, "wss://gw1.com")
-		ns.AddGateway(eui2, "wss://gw2.com")
+		ns.AddGateway(eui1, "wss://gw1.com", nil, nil)
+		ns.AddGateway(eui2, "wss://gw2.com", nil, nil)
 
 		info := ns.GetInfo()
 
@@ -251,8 +251,8 @@ func TestNetworkServer_ForwardDownlink(t *testing.T) {
 		appKey := lorawan.AES128Key{0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff}
 		devNonce := lorawan.DevNonce(100)
 
-		dev1, _ := ns.AddDevice(devEUI1, joinEUI, appKey, devNonce)
-		dev2, _ := ns.AddDevice(devEUI2, joinEUI, appKey, devNonce)
+		dev1, _ := ns.AddDevice(devEUI1, joinEUI, appKey, devNonce, lorawan.DevAddr{}, lorawan.AES128Key{}, lorawan.AES128Key{}, 0, 0, nil)
+		dev2, _ := ns.AddDevice(devEUI2, joinEUI, appKey, devNonce, lorawan.DevAddr{}, lorawan.AES128Key{}, lorawan.AES128Key{}, 0, 0, nil)
 
 		// Create a JoinAccept frame
 		joinAccept := lorawan.JoinAcceptPayload{
@@ -293,8 +293,8 @@ func TestNetworkServer_ForwardDownlink(t *testing.T) {
 		appKey := lorawan.AES128Key{0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff}
 		devNonce := lorawan.DevNonce(100)
 
-		dev1, _ := ns.AddDevice(devEUI1, joinEUI, appKey, devNonce)
-		dev2, _ := ns.AddDevice(devEUI2, joinEUI, appKey, devNonce)
+		dev1, _ := ns.AddDevice(devEUI1, joinEUI, appKey, devNonce, lorawan.DevAddr{}, lorawan.AES128Key{}, lorawan.AES128Key{}, 0, 0, nil)
+		dev2, _ := ns.AddDevice(devEUI2, joinEUI, appKey, devNonce, lorawan.DevAddr{}, lorawan.AES128Key{}, lorawan.AES128Key{}, 0, 0, nil)
 
 		// Simulate that dev1 has completed join and has a DevAddr
 		targetDevAddr := lorawan.DevAddr{0x01, 0x02, 0x03, 0x04}
@@ -360,9 +360,9 @@ func TestNetworkServer_ForwardDownlink(t *testing.T) {
 		appKey := lorawan.AES128Key{0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff}
 		devNonce := lorawan.DevNonce(100)
 
-		dev1, _ := ns.AddDevice(devEUI1, joinEUI, appKey, devNonce)
-		dev2, _ := ns.AddDevice(devEUI2, joinEUI, appKey, devNonce)
-		dev3, _ := ns.AddDevice(devEUI3, joinEUI, appKey, devNonce)
+		dev1, _ := ns.AddDevice(devEUI1, joinEUI, appKey, devNonce, lorawan.DevAddr{}, lorawan.AES128Key{}, lorawan.AES128Key{}, 0, 0, nil)
+		dev2, _ := ns.AddDevice(devEUI2, joinEUI, appKey, devNonce, lorawan.DevAddr{}, lorawan.AES128Key{}, lorawan.AES128Key{}, 0, 0, nil)
+		dev3, _ := ns.AddDevice(devEUI3, joinEUI, appKey, devNonce, lorawan.DevAddr{}, lorawan.AES128Key{}, lorawan.AES128Key{}, 0, 0, nil)
 
 		// Assign different DevAddrs
 		dev1.DevAddr = lorawan.DevAddr{0x01, 0x00, 0x00, 0x00}
@@ -412,7 +412,7 @@ func TestNetworkServer_ForwardDownlink(t *testing.T) {
 		appKey := lorawan.AES128Key{0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff}
 		devNonce := lorawan.DevNonce(100)
 
-		dev, _ := ns.AddDevice(devEUI, joinEUI, appKey, devNonce)
+		dev, _ := ns.AddDevice(devEUI, joinEUI, appKey, devNonce, lorawan.DevAddr{}, lorawan.AES128Key{}, lorawan.AES128Key{}, 0, 0, nil)
 		targetDevAddr := lorawan.DevAddr{0x01, 0x02, 0x03, 0x04}
 		dev.DevAddr = targetDevAddr
 
@@ -454,8 +454,8 @@ func TestNetworkServer_ForwardUplink(t *testing.T) {
 		eui1 := lorawan.EUI64{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}
 		eui2 := lorawan.EUI64{0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18}
 
-		gw1, _ := ns.AddGateway(eui1, "wss://gw1.com")
-		gw2, _ := ns.AddGateway(eui2, "wss://gw2.com")
+		gw1, _ := ns.AddGateway(eui1, "wss://gw1.com", nil, nil)
+		gw2, _ := ns.AddGateway(eui2, "wss://gw2.com", nil, nil)
 
 		// Create an uplink frame
 		phy := lorawan.PHYPayload{
@@ -501,7 +501,7 @@ func TestNetworkServer_SendUplink(t *testing.T) {
 		joinEUI := lorawan.EUI64{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}
 		appKey := lorawan.AES128Key{0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f}
 		devNonce := lorawan.DevNonce(100)
-		dev, err := ns.AddDevice(devEUI, joinEUI, appKey, devNonce)
+		dev, err := ns.AddDevice(devEUI, joinEUI, appKey, devNonce, lorawan.DevAddr{}, lorawan.AES128Key{}, lorawan.AES128Key{}, 0, 0, nil)
 		assert.NoError(t, err)
 		assert.NotNil(t, dev)
 
@@ -538,7 +538,7 @@ func TestNetworkServer_SendUplink(t *testing.T) {
 		joinEUI := lorawan.EUI64{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}
 		appKey := lorawan.AES128Key{0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f}
 		devNonce := lorawan.DevNonce(100)
-		dev, err := ns.AddDevice(devEUI, joinEUI, appKey, devNonce)
+		dev, err := ns.AddDevice(devEUI, joinEUI, appKey, devNonce, lorawan.DevAddr{}, lorawan.AES128Key{}, lorawan.AES128Key{}, 0, 0, nil)
 		assert.NoError(t, err)
 		assert.NotNil(t, dev)
 
@@ -556,7 +556,7 @@ func TestNetworkServer_SendUplink(t *testing.T) {
 		joinEUI := lorawan.EUI64{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}
 		appKey := lorawan.AES128Key{0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f}
 		devNonce := lorawan.DevNonce(100)
-		dev, err := ns.AddDevice(devEUI, joinEUI, appKey, devNonce)
+		dev, err := ns.AddDevice(devEUI, joinEUI, appKey, devNonce, lorawan.DevAddr{}, lorawan.AES128Key{}, lorawan.AES128Key{}, 0, 0, nil)
 		assert.NoError(t, err)
 
 		// Set DevAddr and session keys

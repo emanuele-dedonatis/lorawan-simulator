@@ -80,9 +80,9 @@ func TestGetGateways(t *testing.T) {
 		eui2 := lorawan.EUI64{0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18}
 		eui3 := lorawan.EUI64{0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28}
 
-		ns.AddGateway(eui1, "http://discovery1.example.com")
-		ns.AddGateway(eui2, "http://discovery2.example.com")
-		ns.AddGateway(eui3, "http://discovery3.example.com")
+		ns.AddGateway(eui1, "http://discovery1.example.com", nil, nil)
+		ns.AddGateway(eui2, "http://discovery2.example.com", nil, nil)
+		ns.AddGateway(eui3, "http://discovery3.example.com", nil, nil)
 
 		req, _ := http.NewRequest("GET", "/network-servers/test-server/gateways", nil)
 		w := httptest.NewRecorder()
@@ -137,7 +137,7 @@ func TestPostGateway(t *testing.T) {
 		ns, _ := testPool.Add("test-server", integration.NetworkServerConfig{Type: integration.NetworkServerTypeGeneric})
 
 		eui := lorawan.EUI64{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}
-		ns.AddGateway(eui, "http://discovery.example.com")
+		ns.AddGateway(eui, "http://discovery.example.com", nil, nil)
 
 		body := map[string]string{
 			"eui":          "0102030405060708",
@@ -253,7 +253,7 @@ func TestGetGatewayByEUI(t *testing.T) {
 		ns, _ := testPool.Add("test-server", integration.NetworkServerConfig{Type: integration.NetworkServerTypeGeneric})
 
 		eui := lorawan.EUI64{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}
-		ns.AddGateway(eui, "http://discovery.example.com")
+		ns.AddGateway(eui, "http://discovery.example.com", nil, nil)
 
 		req, _ := http.NewRequest("GET", "/network-servers/test-server/gateways/0102030405060708", nil)
 		w := httptest.NewRecorder()
@@ -317,7 +317,7 @@ func TestDelGateway(t *testing.T) {
 		ns, _ := testPool.Add("test-server", integration.NetworkServerConfig{Type: integration.NetworkServerTypeGeneric})
 
 		eui := lorawan.EUI64{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}
-		ns.AddGateway(eui, "http://discovery.example.com")
+		ns.AddGateway(eui, "http://discovery.example.com", nil, nil)
 
 		req, _ := http.NewRequest("DELETE", "/network-servers/test-server/gateways/0102030405060708", nil)
 		w := httptest.NewRecorder()
@@ -482,7 +482,7 @@ func TestConnectGateway(t *testing.T) {
 		ns, _ := testPool.Add("test-server", integration.NetworkServerConfig{Type: integration.NetworkServerTypeGeneric})
 
 		eui := lorawan.EUI64{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}
-		ns.AddGateway(eui, "http://discovery.example.com")
+		ns.AddGateway(eui, "http://discovery.example.com", nil, nil)
 
 		req, _ := http.NewRequest("POST", "/network-servers/test-server/gateways/0102030405060708/connect", nil)
 		w := httptest.NewRecorder()
@@ -541,7 +541,7 @@ func TestDisconnectGateway(t *testing.T) {
 		ns, _ := testPool.Add("test-server", integration.NetworkServerConfig{Type: integration.NetworkServerTypeGeneric})
 
 		eui := lorawan.EUI64{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}
-		ns.AddGateway(eui, "http://discovery.example.com")
+		ns.AddGateway(eui, "http://discovery.example.com", nil, nil)
 
 		// Connect first so we can disconnect
 		req, _ := http.NewRequest("POST", "/network-servers/test-server/gateways/0102030405060708/connect", nil)
@@ -562,7 +562,7 @@ func TestDisconnectGateway(t *testing.T) {
 		ns, _ := testPool.Add("test-server", integration.NetworkServerConfig{Type: integration.NetworkServerTypeGeneric})
 
 		eui := lorawan.EUI64{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}
-		ns.AddGateway(eui, "http://discovery.example.com")
+		ns.AddGateway(eui, "http://discovery.example.com", nil, nil)
 
 		// Try to disconnect without connecting first
 		req, _ := http.NewRequest("POST", "/network-servers/test-server/gateways/0102030405060708/disconnect", nil)
@@ -627,7 +627,7 @@ func TestIntegration_GatewayConnectionWorkflow(t *testing.T) {
 		ns, _ := testPool.Add("test-server", integration.NetworkServerConfig{Type: integration.NetworkServerTypeGeneric})
 
 		eui := lorawan.EUI64{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}
-		ns.AddGateway(eui, "http://discovery.example.com")
+		ns.AddGateway(eui, "http://discovery.example.com", nil, nil)
 
 		// 1. Check initial state - should be disconnected
 		req, _ := http.NewRequest("GET", "/network-servers/test-server/gateways/0102030405060708", nil)
