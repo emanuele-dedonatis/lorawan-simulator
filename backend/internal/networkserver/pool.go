@@ -66,21 +66,29 @@ func (p *Pool) Get(name string) (*NetworkServer, error) {
 
 func (p *Pool) Add(name string, config integration.NetworkServerConfig) (*NetworkServer, error) {
 	p.mu.Lock()
-	defer p.mu.Unlock()
-
 	if _, exists := p.ns[name]; exists {
+		p.mu.Unlock()
 		return nil, errors.New("network server already exists")
 	}
 
-	p.ns[name] = New(name, config, p.broadcastUplink, p.broadcastDownlink)
+	ns := New(name, config, p.broadcastUplink, p.broadcastDownlink)
+	p.ns[name] = ns
+	p.mu.Unlock()
 
-	// Sync gateways and devices
-	err := p.ns[name].Sync()
+	// Sync gateways and devices (synchronously, but outside the lock)
+	log.Printf("[%s] starting sync", name)
+	err := ns.Sync()
 	if err != nil {
+		log.Printf("[%s] sync error: %v", name, err)
+		// Remove the network server from the pool if sync fails
+		p.mu.Lock()
+		delete(p.ns, name)
+		p.mu.Unlock()
 		return nil, err
 	}
+	log.Printf("[%s] sync completed", name)
 
-	return p.ns[name], nil
+	return ns, nil
 }
 
 func (p *Pool) List() []*NetworkServer {
