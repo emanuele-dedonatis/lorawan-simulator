@@ -160,7 +160,7 @@ func (c *TTNClient) ListGateways() ([]gateway.GatewayInfo, error) {
 	for {
 		req := &ttnpb.ListGatewaysRequest{
 			FieldMask: &fieldmaskpb.FieldMask{
-				Paths: []string{"ids", "ids.eui"},
+				Paths: []string{"ids", "ids.eui", "antennas"},
 			},
 			Page:  page,
 			Limit: limit,
@@ -189,11 +189,25 @@ func (c *TTNClient) ListGateways() ([]gateway.GatewayInfo, error) {
 			headers := http.Header{}
 			headers.Add("Authorization", "Bearer "+c.apiKey)
 
-			allGateways = append(allGateways, gateway.GatewayInfo{
+			gwInfo := gateway.GatewayInfo{
 				EUI:          eui,
 				DiscoveryURI: discoveryUri,
 				Headers:      headers,
-			})
+			}
+
+			// Extract location from antennas (TTN stores location in first antenna)
+			if len(gw.Antennas) > 0 && gw.Antennas[0].Location != nil {
+				loc := gw.Antennas[0].Location
+				if loc.Latitude != 0 || loc.Longitude != 0 {
+					gwInfo.Location = &gateway.Location{
+						Latitude:  loc.Latitude,
+						Longitude: loc.Longitude,
+					}
+					log.Printf("[TTN] gateway %s has location: lat=%f, lon=%f", eui, loc.Latitude, loc.Longitude)
+				}
+			}
+
+			allGateways = append(allGateways, gwInfo)
 		}
 
 		// Check if there are more pages
@@ -266,6 +280,7 @@ func (c *TTNClient) ListDevices() ([]device.DeviceInfo, error) {
 							"ids.device_id",
 							"ids.dev_eui",
 							"ids.join_eui",
+							"locations",
 						},
 					},
 					Page:  devPage,
@@ -306,11 +321,40 @@ func (c *TTNClient) ListDevices() ([]device.DeviceInfo, error) {
 						// Other fields will be zero values if we can't fetch them
 					}
 
+					// Extract location if available from the list response
+					if len(dev.Locations) > 0 {
+						// TTN can have multiple locations (user-set, frm-payload, etc.)
+						// Try "user" location first, then fall back to any available location
+						var location *ttnpb.Location
+						for source, loc := range dev.Locations {
+							if source == "user" {
+								location = loc
+								break
+							}
+							// Keep first non-nil location as fallback
+							if location == nil && loc != nil {
+								location = loc
+							}
+						}
+
+						if location != nil && (location.Latitude != 0 || location.Longitude != 0) {
+							deviceInfo.Location = &device.Location{
+								Latitude:  location.Latitude,
+								Longitude: location.Longitude,
+							}
+							log.Printf("[TTN] device %s has location: lat=%f, lon=%f", devEUI, location.Latitude, location.Longitude)
+						}
+					}
+
 					// Attempt to get full details
 					fullInfo, err := c.getDeviceDetails(ctx, dev.Ids)
 					if err != nil {
 						log.Printf("[TTN] could not get full details for device %s: %v (using basic info only)", dev.Ids.DeviceId, err)
 					} else {
+						// Preserve location from list response if not in full details
+						if fullInfo.Location == nil && deviceInfo.Location != nil {
+							fullInfo.Location = deviceInfo.Location
+						}
 						deviceInfo = fullInfo
 					}
 
