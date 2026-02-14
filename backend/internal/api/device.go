@@ -49,6 +49,12 @@ func postDevice(c *gin.Context) {
 		JoinEUI  string `json:"joineui" binding:"required"`
 		AppKey   string `json:"appkey" binding:"required"`
 		DevNonce uint16 `json:"devnonce"`
+		// Optional fields for ABP and OTAA (activated)
+		DevAddr  string `json:"devaddr"`
+		AppSKey  string `json:"appskey"`
+		NwkSKey  string `json:"nwkskey"`
+		FCntUp   uint32 `json:"fcntup"`
+		FCntDown uint32 `json:"fcntdn"`
 	}
 
 	if err := c.Bind(&json); err != nil {
@@ -77,7 +83,34 @@ func postDevice(c *gin.Context) {
 		return
 	}
 
-	dev, err := ns.AddDevice(deveui, joineui, appkey, lorawan.DevNonce(json.DevNonce), lorawan.DevAddr{}, lorawan.AES128Key{}, lorawan.AES128Key{}, 0, 0)
+	// Parse optional DevAddr
+	var devaddr lorawan.DevAddr
+	if json.DevAddr != "" {
+		if err := devaddr.UnmarshalText([]byte(json.DevAddr)); err != nil {
+			c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "invalid DevAddr format"})
+			return
+		}
+	}
+
+	// Parse optional AppSKey
+	var appskey lorawan.AES128Key
+	if json.AppSKey != "" {
+		if err := appskey.UnmarshalText([]byte(json.AppSKey)); err != nil {
+			c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "invalid AppSKey format"})
+			return
+		}
+	}
+
+	// Parse optional NwkSKey
+	var nwkskey lorawan.AES128Key
+	if json.NwkSKey != "" {
+		if err := nwkskey.UnmarshalText([]byte(json.NwkSKey)); err != nil {
+			c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "invalid NwkSKey format"})
+			return
+		}
+	}
+
+	dev, err := ns.AddDevice(deveui, joineui, appkey, lorawan.DevNonce(json.DevNonce), devaddr, appskey, nwkskey, json.FCntUp, json.FCntDown)
 	if err != nil {
 		c.IndentedJSON(http.StatusConflict, gin.H{"message": err.Error()})
 		return

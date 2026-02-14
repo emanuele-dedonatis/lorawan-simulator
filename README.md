@@ -25,6 +25,70 @@ The simulator includes a web-based dashboard for easy management of network serv
 - Real-time connection management
 - One-click join and uplink operations
 
+## Network Server Integration
+
+When you add a network server (LORIOT, ChirpStack, or The Things Network), the simulator **automatically syncs** all gateways and devices from that network server. This means you can immediately start simulating without any manual configuration!
+
+The synchronization:
+- Fetches all gateways and devices from the network server
+- Retrieves session keys and frame counters for already-activated devices
+- Pulls location data for map visualization
+- Keeps your simulation environment in sync with your actual network
+
+## Manual Device Creation
+
+If you prefer to create devices manually or need to add test devices that don't exist on your network server, the simulator provides an easy-to-use interface supporting three different activation modes:
+
+### OTAA (Over-The-Air Activation)
+
+Standard OTAA devices that need to perform a join procedure:
+
+![OTAA Device Creation](docs/add-device-otaa.png)
+
+**Required fields:**
+- Device EUI
+- Join EUI
+- App Key
+- Dev Nonce (optional, defaults to 0)
+
+### OTAA (Activated)
+
+Pre-activated OTAA devices that already have session keys:
+
+![OTAA Activated Device Creation](docs/add-device-otaa-activated.png)
+
+**Required fields:**
+- Device EUI, Join EUI, App Key, Dev Nonce (OTAA credentials)
+- Device Address, App Session Key, Network Session Key (session keys)
+- FCnt Up, FCnt Down (frame counters)
+
+Perfect for testing devices that have already joined or for restoring session state.
+
+### ABP (Activation By Personalization)
+
+ABP devices with hardcoded session keys:
+
+![ABP Device Creation](docs/add-device-abp.png)
+
+**Required fields:**
+- Device EUI
+- Device Address
+- App Session Key
+- Network Session Key
+- FCnt Up, FCnt Down (optional, defaults to 0)
+
+## Manual Gateway Creation
+
+Similarly to devices, you can manually add gateways for testing purposes:
+
+![Gateway Creation](docs/add-gateway.png)
+
+**Required fields:**
+- Gateway EUI
+- Discovery URI (WebSocket endpoint for LoRa Basics™ Station protocol)
+
+Once added, gateways can be connected/disconnected with a single click from the dashboard.
+
 ### Coming Soon
 
 - **MAC Commands Handling** - Full support for LoRaWAN® MAC commands processing
@@ -32,7 +96,6 @@ The simulator includes a web-based dashboard for easy management of network serv
 - **Device and Gateway Channel Plans** - Support for regional channel plans and custom configurations
 - **Geolocation Broadcast** - Simulate GPS coordinates and location data
 - **Class B and Class C Support** - Beyond Class A device simulation
-- **Network Server Integration** - Automatically sync gateways and devices from LORIOT, ChirpStack, or The Things Network (TTN)
 
 
 ## Quick Start

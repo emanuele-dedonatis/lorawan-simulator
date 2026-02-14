@@ -606,14 +606,15 @@ function showAddDeviceModal(serverName) {
     modalTitle.textContent = 'Add Device';
     
     modalBody.innerHTML = `
-        <label>Device EUI (16 hex characters)</label>
-        <input type="text" id="device-eui" placeholder="0011223344556677" maxlength="16">
-        <label>Join EUI (16 hex characters)</label>
-        <input type="text" id="join-eui" placeholder="0011223344556677" maxlength="16">
-        <label>App Key (32 hex characters)</label>
-        <input type="text" id="app-key" placeholder="00112233445566770011223344556677" maxlength="32">
-        <label>Dev Nonce</label>
-        <input type="number" id="dev-nonce" placeholder="0" value="0" onkeypress="if(event.key==='Enter')createDevice('${serverName}')">
+        <label>Activation Mode</label>
+        <select id="device-type" onchange="updateDeviceFields('${serverName}')">
+            <option value="otaa">OTAA</option>
+            <option value="otaa-activated">OTAA (activated)</option>
+            <option value="abp">ABP</option>
+        </select>
+        
+        <div id="device-fields"></div>
+        
         <div class="modal-actions">
             <button onclick="closeModal()" class="btn btn-secondary">Cancel</button>
             <button onclick="createDevice('${serverName}')" class="btn btn-primary">Create</button>
@@ -621,9 +622,74 @@ function showAddDeviceModal(serverName) {
     `;
     
     modal.classList.add('show');
+    
+    // Initialize with OTAA fields
+    updateDeviceFields(serverName);
+    
     setTimeout(() => {
         document.getElementById('device-eui')?.focus();
     }, 0);
+}
+
+function updateDeviceFields(serverName) {
+    const deviceType = document.getElementById('device-type').value;
+    const fieldsContainer = document.getElementById('device-fields');
+    
+    let fieldsHTML = '';
+    
+    if (deviceType === 'otaa') {
+        // OTAA: deveui, joineui, appkey, devnonce
+        fieldsHTML = `
+            <label>Device EUI (16 hex characters)</label>
+            <input type="text" id="device-eui" placeholder="0011223344556677" maxlength="16">
+            <label>Join EUI (16 hex characters)</label>
+            <input type="text" id="join-eui" placeholder="0011223344556677" maxlength="16">
+            <label>App Key (32 hex characters)</label>
+            <input type="text" id="app-key" placeholder="00112233445566770011223344556677" maxlength="32">
+            <label>Dev Nonce</label>
+            <input type="number" id="dev-nonce" placeholder="0" value="0" onkeypress="if(event.key==='Enter')createDevice('${serverName}')">
+        `;
+    } else if (deviceType === 'abp') {
+        // ABP: deveui, devaddr, appskey, nwkskey, fcntup, fcntdn
+        fieldsHTML = `
+            <label>Device EUI (16 hex characters)</label>
+            <input type="text" id="device-eui" placeholder="0011223344556677" maxlength="16">
+            <label>Device Address (8 hex characters)</label>
+            <input type="text" id="dev-addr" placeholder="01020304" maxlength="8">
+            <label>App Session Key (32 hex characters)</label>
+            <input type="text" id="app-skey" placeholder="00112233445566770011223344556677" maxlength="32">
+            <label>Network Session Key (32 hex characters)</label>
+            <input type="text" id="nwk-skey" placeholder="00112233445566770011223344556677" maxlength="32">
+            <label>FCnt Up</label>
+            <input type="number" id="fcnt-up" placeholder="0" value="0">
+            <label>FCnt Down</label>
+            <input type="number" id="fcnt-down" placeholder="0" value="0" onkeypress="if(event.key==='Enter')createDevice('${serverName}')">
+        `;
+    } else if (deviceType === 'otaa-activated') {
+        // OTAA (activated): all fields
+        fieldsHTML = `
+            <label>Device EUI (16 hex characters)</label>
+            <input type="text" id="device-eui" placeholder="0011223344556677" maxlength="16">
+            <label>Join EUI (16 hex characters)</label>
+            <input type="text" id="join-eui" placeholder="0011223344556677" maxlength="16">
+            <label>App Key (32 hex characters)</label>
+            <input type="text" id="app-key" placeholder="00112233445566770011223344556677" maxlength="32">
+            <label>Dev Nonce</label>
+            <input type="number" id="dev-nonce" placeholder="0" value="0">
+            <label>Device Address (8 hex characters)</label>
+            <input type="text" id="dev-addr" placeholder="01020304" maxlength="8">
+            <label>App Session Key (32 hex characters)</label>
+            <input type="text" id="app-skey" placeholder="00112233445566770011223344556677" maxlength="32">
+            <label>Network Session Key (32 hex characters)</label>
+            <input type="text" id="nwk-skey" placeholder="00112233445566770011223344556677" maxlength="32">
+            <label>FCnt Up</label>
+            <input type="number" id="fcnt-up" placeholder="0" value="0">
+            <label>FCnt Down</label>
+            <input type="number" id="fcnt-down" placeholder="0" value="0" onkeypress="if(event.key==='Enter')createDevice('${serverName}')">
+        `;
+    }
+    
+    fieldsContainer.innerHTML = fieldsHTML;
 }
 
 async function createGateway(serverName) {
@@ -648,20 +714,83 @@ async function createGateway(serverName) {
 }
 
 async function createDevice(serverName) {
+    const deviceType = document.getElementById('device-type').value;
     const deveui = document.getElementById('device-eui').value.trim();
-    const joineui = document.getElementById('join-eui').value.trim();
-    const appkey = document.getElementById('app-key').value.trim();
-    const devnonce = parseInt(document.getElementById('dev-nonce').value) || 0;
     
-    if (!deveui || !joineui || !appkey) {
-        alert('Please fill in all fields');
-        return;
+    let body = { deveui };
+    
+    if (deviceType === 'otaa') {
+        // OTAA: deveui, joineui, appkey, devnonce
+        const joineui = document.getElementById('join-eui').value.trim();
+        const appkey = document.getElementById('app-key').value.trim();
+        const devnonce = parseInt(document.getElementById('dev-nonce').value) || 0;
+        
+        if (!deveui || !joineui || !appkey) {
+            alert('Please fill in all required fields');
+            return;
+        }
+        
+        body = { deveui, joineui, appkey, devnonce };
+        
+    } else if (deviceType === 'abp') {
+        // ABP: deveui, devaddr, appskey, nwkskey, fcntup, fcntdn
+        const devaddr = document.getElementById('dev-addr').value.trim();
+        const appskey = document.getElementById('app-skey').value.trim();
+        const nwkskey = document.getElementById('nwk-skey').value.trim();
+        const fcntup = parseInt(document.getElementById('fcnt-up').value) || 0;
+        const fcntdn = parseInt(document.getElementById('fcnt-down').value) || 0;
+        
+        if (!deveui || !devaddr || !appskey || !nwkskey) {
+            alert('Please fill in all required fields');
+            return;
+        }
+        
+        // For ABP, set joineui and appkey to zeros
+        body = {
+            deveui,
+            joineui: '0000000000000000',
+            appkey: '00000000000000000000000000000000',
+            devnonce: 0,
+            devaddr,
+            appskey,
+            nwkskey,
+            fcntup,
+            fcntdn
+        };
+        
+    } else if (deviceType === 'otaa-activated') {
+        // OTAA (activated): all fields
+        const joineui = document.getElementById('join-eui').value.trim();
+        const appkey = document.getElementById('app-key').value.trim();
+        const devnonce = parseInt(document.getElementById('dev-nonce').value) || 0;
+        const devaddr = document.getElementById('dev-addr').value.trim();
+        const appskey = document.getElementById('app-skey').value.trim();
+        const nwkskey = document.getElementById('nwk-skey').value.trim();
+        const fcntup = parseInt(document.getElementById('fcnt-up').value) || 0;
+        const fcntdn = parseInt(document.getElementById('fcnt-down').value) || 0;
+        
+        if (!deveui || !joineui || !appkey || !devaddr || !appskey || !nwkskey) {
+            alert('Please fill in all required fields');
+            return;
+        }
+        
+        body = {
+            deveui,
+            joineui,
+            appkey,
+            devnonce,
+            devaddr,
+            appskey,
+            nwkskey,
+            fcntup,
+            fcntdn
+        };
     }
     
     try {
         await fetchAPI(`/network-servers/${serverName}/devices`, {
             method: 'POST',
-            body: JSON.stringify({ deveui, joineui, appkey, devnonce })
+            body: JSON.stringify(body)
         });
         closeModal();
         await refreshData();
