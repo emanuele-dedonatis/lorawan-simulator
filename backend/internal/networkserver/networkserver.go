@@ -64,6 +64,10 @@ func (ns *NetworkServer) GetInfo() NetworkServerInfo {
 // Gateway management methods
 
 func (ns *NetworkServer) AddGateway(EUI lorawan.EUI64, discoveryURI string, headers ...http.Header) (*gateway.Gateway, error) {
+	return ns.AddGatewayWithLocation(EUI, discoveryURI, nil, headers...)
+}
+
+func (ns *NetworkServer) AddGatewayWithLocation(EUI lorawan.EUI64, discoveryURI string, location *gateway.Location, headers ...http.Header) (*gateway.Gateway, error) {
 	ns.mu.Lock()
 	defer ns.mu.Unlock()
 
@@ -77,7 +81,7 @@ func (ns *NetworkServer) AddGateway(EUI lorawan.EUI64, discoveryURI string, head
 		h = headers[0]
 	}
 
-	ns.gateways[EUI] = gateway.New(ns.broadcastDownlink, EUI, discoveryURI, h)
+	ns.gateways[EUI] = gateway.NewWithLocation(ns.broadcastDownlink, EUI, discoveryURI, h, location)
 	return ns.gateways[EUI], nil
 }
 
@@ -156,6 +160,21 @@ func (ns *NetworkServer) AddDevice(
 	FCntUp uint32,
 	FCntDn uint32,
 ) (*device.Device, error) {
+	return ns.AddDeviceWithLocation(DevEUI, JoinEUI, AppKey, DevNonce, DevAddr, AppSKey, NwkSKey, FCntUp, FCntDn, nil)
+}
+
+func (ns *NetworkServer) AddDeviceWithLocation(
+	DevEUI lorawan.EUI64,
+	JoinEUI lorawan.EUI64,
+	AppKey lorawan.AES128Key,
+	DevNonce lorawan.DevNonce,
+	DevAddr lorawan.DevAddr,
+	AppSKey lorawan.AES128Key,
+	NwkSKey lorawan.AES128Key,
+	FCntUp uint32,
+	FCntDn uint32,
+	location *device.Location,
+) (*device.Device, error) {
 	ns.mu.Lock()
 	defer ns.mu.Unlock()
 
@@ -163,7 +182,7 @@ func (ns *NetworkServer) AddDevice(
 		return nil, errors.New("device already exists")
 	}
 
-	ns.devices[DevEUI] = device.New(ns.broadcastUplink, DevEUI, JoinEUI, AppKey, DevNonce, DevAddr, AppSKey, NwkSKey, FCntUp, FCntDn)
+	ns.devices[DevEUI] = device.NewWithLocation(ns.broadcastUplink, DevEUI, JoinEUI, AppKey, DevNonce, DevAddr, AppSKey, NwkSKey, FCntUp, FCntDn, location)
 	return ns.devices[DevEUI], nil
 }
 
@@ -332,7 +351,7 @@ func (ns *NetworkServer) Sync() error {
 
 	// Add new gateways
 	for _, gw := range gwsToAdd {
-		_, err := ns.AddGateway(gw.EUI, gw.DiscoveryURI, gw.Headers)
+		_, err := ns.AddGatewayWithLocation(gw.EUI, gw.DiscoveryURI, gw.Location, gw.Headers)
 		if err != nil {
 			log.Printf("[%s] unable to add gateway %s: %v", ns.name, gw.EUI, err)
 		}
@@ -371,7 +390,7 @@ func (ns *NetworkServer) Sync() error {
 
 	// Add new devices
 	for _, dev := range devsToAdd {
-		_, err := ns.AddDevice(dev.DevEUI, dev.JoinEUI, dev.AppKey, dev.DevNonce, dev.DevAddr, dev.AppSKey, dev.NwkSKey, dev.FCntUp, dev.FCntDn)
+		_, err := ns.AddDeviceWithLocation(dev.DevEUI, dev.JoinEUI, dev.AppKey, dev.DevNonce, dev.DevAddr, dev.AppSKey, dev.NwkSKey, dev.FCntUp, dev.FCntDn, dev.Location)
 		if err != nil {
 			log.Printf("[%s] unable to add device %s: %v", ns.name, dev.DevEUI, err)
 		}

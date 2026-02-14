@@ -10,6 +10,11 @@ import (
 	"github.com/brocaar/lorawan"
 )
 
+type Location struct {
+	Latitude  float64 `json:"latitude"`
+	Longitude float64 `json:"longitude"`
+}
+
 type Device struct {
 	DevEUI   lorawan.EUI64
 	JoinEUI  lorawan.EUI64
@@ -23,6 +28,7 @@ type Device struct {
 	FCntUp uint32
 	FCntDn uint32
 
+	location        *Location
 	mu              sync.RWMutex
 	broadcastUplink chan<- lorawan.PHYPayload
 }
@@ -37,8 +43,9 @@ type DeviceInfo struct {
 	AppSKey lorawan.AES128Key `json:"appskey"`
 	NwkSKey lorawan.AES128Key `json:"nwkskey"`
 
-	FCntUp uint32 `json:"fcntup"`
-	FCntDn uint32 `json:"fcntdn"`
+	FCntUp   uint32    `json:"fcntup"`
+	FCntDn   uint32    `json:"fcntdn"`
+	Location *Location `json:"location,omitempty"`
 }
 
 func New(broadcastUplink chan<- lorawan.PHYPayload,
@@ -63,6 +70,34 @@ func New(broadcastUplink chan<- lorawan.PHYPayload,
 		NwkSKey:         NwkSKey,
 		FCntUp:          FCntUp,
 		FCntDn:          FCntDn,
+		location:        nil,
+	}
+}
+
+func NewWithLocation(broadcastUplink chan<- lorawan.PHYPayload,
+	DevEUI lorawan.EUI64,
+	JoinEUI lorawan.EUI64,
+	AppKey lorawan.AES128Key,
+	DevNonce lorawan.DevNonce,
+	DevAddr lorawan.DevAddr,
+	AppSKey lorawan.AES128Key,
+	NwkSKey lorawan.AES128Key,
+	FCntUp uint32,
+	FCntDn uint32,
+	location *Location,
+) *Device {
+	return &Device{
+		broadcastUplink: broadcastUplink,
+		DevEUI:          DevEUI,
+		JoinEUI:         JoinEUI,
+		AppKey:          AppKey,
+		DevNonce:        DevNonce,
+		DevAddr:         DevAddr,
+		AppSKey:         AppSKey,
+		NwkSKey:         NwkSKey,
+		FCntUp:          FCntUp,
+		FCntDn:          FCntDn,
+		location:        location,
 	}
 }
 
@@ -80,6 +115,7 @@ func (d *Device) GetInfo() DeviceInfo {
 		NwkSKey:  d.NwkSKey,
 		FCntUp:   d.FCntUp,
 		FCntDn:   d.FCntDn,
+		Location: d.location,
 	}
 }
 

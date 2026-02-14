@@ -239,6 +239,7 @@ function renderDeviceList(serverName, devices) {
         return `
             <div class="device-item">
                 <div class="device-info">
+                    <div class="status-light blue"></div>
                     <span class="eui">${dev.deveui}</span>
                     <div class="device-stats">
                         <span>↑ ${dev.fcntup}</span>
@@ -269,7 +270,81 @@ function renderGateways() {
     markers.forEach(marker => map.removeLayer(marker));
     markers = [];
     
-    // Note: Map markers are disabled. Location feature will be added later.
+    // Add gateway markers
+    Object.keys(gateways).forEach(serverName => {
+        const serverGateways = gateways[serverName] || [];
+        serverGateways.forEach(gw => {
+            if (gw.location && gw.location.latitude && gw.location.longitude) {
+                // Determine color based on connection state
+                const isConnected = gw.dataState === "connected";
+                const isDisconnected = gw.discoveryState === "disconnected" && gw.dataState === "disconnected";
+                
+                let color = 'orange'; // default for other states
+                if (isConnected) {
+                    color = 'green';
+                } else if (isDisconnected) {
+                    color = 'red';
+                }
+                
+                // Create circle marker
+                const marker = L.circleMarker([gw.location.latitude, gw.location.longitude], {
+                    radius: 15,
+                    fillColor: color,
+                    color: '#fff',
+                    weight: 3,
+                    opacity: 1,
+                    fillOpacity: 0.8
+                });
+                
+                // Add popup with gateway info
+                marker.bindPopup(`
+                    <strong>Gateway</strong><br>
+                    EUI: ${gw.eui}<br>
+                    Server: ${serverName}<br>
+                    Status: ${isConnected ? 'Connected' : isDisconnected ? 'Disconnected' : 'Connecting'}
+                `);
+                
+                marker.addTo(map);
+                markers.push(marker);
+            }
+        });
+    });
+    
+    // Add device markers
+    Object.keys(devices).forEach(serverName => {
+        const serverDevices = devices[serverName] || [];
+        serverDevices.forEach(dev => {
+            if (dev.location && dev.location.latitude && dev.location.longitude) {
+                // Create blue circle marker for devices
+                const marker = L.circleMarker([dev.location.latitude, dev.location.longitude], {
+                    radius: 10,
+                    fillColor: 'blue',
+                    color: '#fff',
+                    weight: 2,
+                    opacity: 1,
+                    fillOpacity: 0.8
+                });
+                
+                // Add popup with device info
+                marker.bindPopup(`
+                    <strong>Device</strong><br>
+                    DevEUI: ${dev.deveui}<br>
+                    Server: ${serverName}<br>
+                    FCntUp: ${dev.fcntup}<br>
+                    FCntDn: ${dev.fcntdn}
+                `);
+                
+                marker.addTo(map);
+                markers.push(marker);
+            }
+        });
+    });
+    
+    // Auto-fit map bounds if there are markers
+    if (markers.length > 0) {
+        const group = L.featureGroup(markers);
+        map.fitBounds(group.getBounds().pad(0.1));
+    }
 }
 
 // Toggle functions

@@ -36,8 +36,12 @@ type loriotStatusResponse struct {
 
 type loriotGatewayResponse struct {
 	Gateways []struct {
-		EUI  string `json:"EUI"`
-		Base string `json:"base"`
+		EUI      string `json:"EUI"`
+		Base     string `json:"base"`
+		Location struct {
+			Lat float64 `json:"lat"`
+			Lon float64 `json:"lon"`
+		} `json:"location"`
 	} `json:"gateways"`
 	Page    int `json:"page"`
 	PerPage int `json:"perPage"`
@@ -102,10 +106,21 @@ func (c *LORIOTClient) ListGateways() ([]gateway.GatewayInfo, error) {
 				}
 				log.Printf("[LORIOT] found gateway %s", eui)
 
-				allGateways = append(allGateways, gateway.GatewayInfo{
+				gwInfo := gateway.GatewayInfo{
 					EUI:          eui,
 					DiscoveryURI: discoveryURI,
-				})
+				}
+
+				// Add location if available
+				if gw.Location.Lat != 0 || gw.Location.Lon != 0 {
+					gwInfo.Location = &gateway.Location{
+						Latitude:  gw.Location.Lat,
+						Longitude: gw.Location.Lon,
+					}
+					log.Printf("[LORIOT] gateway %s has location: lat=%f, lon=%f", eui, gw.Location.Lat, gw.Location.Lon)
+				}
+
+				allGateways = append(allGateways, gwInfo)
 			}
 		}
 
@@ -275,6 +290,10 @@ func (c *LORIOTClient) getDeviceDetails(devEUI string) (device.DeviceInfo, error
 		LastDevNonces []uint16 `json:"lastDevNonces"`
 		SeqNo         int      `json:"seqno"`
 		SeqDn         int      `json:"seqdn"`
+		Location      struct {
+			Lat float64 `json:"lat"`
+			Lon float64 `json:"lon"`
+		} `json:"location"`
 	}
 
 	if err := json.NewDecoder(resp.Body).Decode(&loriotDevice); err != nil {
@@ -347,7 +366,7 @@ func (c *LORIOTClient) getDeviceDetails(devEUI string) (device.DeviceInfo, error
 	log.Printf("[LORIOT] Returning device info - DevAddr: %s, AppSKey: %s (parsed: %x), NwkSKey: %s (parsed: %x), FCntUp: %d, FCntDn: %d",
 		devAddr, loriotDevice.AppSKey, appSKey[:], loriotDevice.NwkSKey, nwkSKey[:], fcntUp, fcntDn)
 
-	return device.DeviceInfo{
+	deviceInfo := device.DeviceInfo{
 		DevEUI:   parsedDevEUI,
 		JoinEUI:  joinEUI,
 		AppKey:   appKey,
@@ -357,7 +376,18 @@ func (c *LORIOTClient) getDeviceDetails(devEUI string) (device.DeviceInfo, error
 		NwkSKey:  nwkSKey,
 		FCntUp:   fcntUp,
 		FCntDn:   fcntDn,
-	}, nil
+	}
+
+	// Add location if available
+	if loriotDevice.Location.Lat != 0 || loriotDevice.Location.Lon != 0 {
+		deviceInfo.Location = &device.Location{
+			Latitude:  loriotDevice.Location.Lat,
+			Longitude: loriotDevice.Location.Lon,
+		}
+		log.Printf("[LORIOT] device %s has location: lat=%f, lon=%f", devEUI, loriotDevice.Location.Lat, loriotDevice.Location.Lon)
+	}
+
+	return deviceInfo, nil
 }
 
 func (c *LORIOTClient) CreateDevice(devEUI lorawan.EUI64, joinEUI lorawan.EUI64, appKey lorawan.AES128Key) error {

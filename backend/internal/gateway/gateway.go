@@ -9,6 +9,11 @@ import (
 	"github.com/gorilla/websocket"
 )
 
+type Location struct {
+	Latitude  float64 `json:"latitude"`
+	Longitude float64 `json:"longitude"`
+}
+
 type Gateway struct {
 	eui               lorawan.EUI64
 	discoveryURI      string
@@ -19,6 +24,7 @@ type Gateway struct {
 	dataDone          chan struct{}
 	dataSendCh        chan string
 	headers           http.Header
+	location          *Location
 	mu                sync.RWMutex
 	broadcastDownlink chan<- lorawan.PHYPayload
 }
@@ -30,6 +36,7 @@ type GatewayInfo struct {
 	DataURI        string          `json:"dataUri"`
 	DataState      string          `json:"dataState"`
 	Headers        http.Header     `json:"headers,omitempty"`
+	Location       *Location       `json:"location,omitempty"`
 }
 
 func New(broadcastDownlink chan<- lorawan.PHYPayload, EUI lorawan.EUI64, discoveryURI string, headers http.Header) *Gateway {
@@ -40,6 +47,20 @@ func New(broadcastDownlink chan<- lorawan.PHYPayload, EUI lorawan.EUI64, discove
 		dataURI:           "",
 		dataState:         StateDisconnected,
 		headers:           headers,
+		location:          nil,
+		broadcastDownlink: broadcastDownlink,
+	}
+}
+
+func NewWithLocation(broadcastDownlink chan<- lorawan.PHYPayload, EUI lorawan.EUI64, discoveryURI string, headers http.Header, location *Location) *Gateway {
+	return &Gateway{
+		eui:               EUI,
+		discoveryURI:      discoveryURI,
+		discoveryState:    StateDisconnected,
+		dataURI:           "",
+		dataState:         StateDisconnected,
+		headers:           headers,
+		location:          location,
 		broadcastDownlink: broadcastDownlink,
 	}
 }
@@ -55,6 +76,7 @@ func (g *Gateway) GetInfo() GatewayInfo {
 		DataURI:        g.dataURI,
 		DataState:      g.dataState.String(),
 		Headers:        g.headers,
+		Location:       g.location,
 	}
 }
 
