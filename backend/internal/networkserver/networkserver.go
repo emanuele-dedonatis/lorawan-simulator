@@ -4,6 +4,7 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"sort"
 	"sync"
 
 	"github.com/emanuele-dedonatis/lorawan-simulator/internal/device"
@@ -100,6 +101,12 @@ func (ns *NetworkServer) ListGateways() []gateway.GatewayInfo {
 	for _, gateway := range ns.gateways {
 		gatewayInfos = append(gatewayInfos, gateway.GetInfo())
 	}
+
+	// Sort alphabetically by EUI
+	sort.Slice(gatewayInfos, func(i, j int) bool {
+		return gatewayInfos[i].EUI.String() < gatewayInfos[j].EUI.String()
+	})
+
 	return gatewayInfos
 }
 
@@ -180,6 +187,12 @@ func (ns *NetworkServer) ListDevices() []device.DeviceInfo {
 	for _, device := range ns.devices {
 		devices = append(devices, device.GetInfo())
 	}
+
+	// Sort alphabetically by DevEUI
+	sort.Slice(devices, func(i, j int) bool {
+		return devices[i].DevEUI.String() < devices[j].DevEUI.String()
+	})
+
 	return devices
 }
 
