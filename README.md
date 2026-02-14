@@ -5,6 +5,7 @@ An open-source LoRaWAN® network simulator to simulate multiple network servers,
 ## Features
 
 - ✅ **Multiple Network Servers** - Manage multiple network server instances
+- ✅ **LNS Integration** - Automatic synchronization with LORIOT, ChirpStack, and The Things Network (TTN)
 - ✅ **Gateway Simulation** - Simulate LoRa Basics™ Station
 - ✅ **Device Simulation** - Simulate end devices with OTAA join and uplink capabilities
 - ✅ **REST API** - Complete HTTP API for managing simulated entities

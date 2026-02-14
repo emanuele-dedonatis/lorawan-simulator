@@ -286,14 +286,21 @@ function renderGateways() {
                     color = 'red';
                 }
                 
-                // Create circle marker
-                const marker = L.circleMarker([gw.location.latitude, gw.location.longitude], {
-                    radius: 15,
-                    fillColor: color,
-                    color: '#fff',
-                    weight: 3,
-                    opacity: 1,
-                    fillOpacity: 0.8
+                // Create custom icon for gateway
+                const gatewayIcon = L.divIcon({
+                    html: `<svg width="25" height="41" viewBox="0 0 25 41" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M12.5 0C5.596 0 0 5.596 0 12.5c0 9.375 12.5 28.5 12.5 28.5S25 21.875 25 12.5C25 5.596 19.404 0 12.5 0z" 
+                              fill="${color}" stroke="#fff" stroke-width="2"/>
+                        <circle cx="12.5" cy="12.5" r="5" fill="#fff"/>
+                    </svg>`,
+                    className: 'custom-marker',
+                    iconSize: [25, 41],
+                    iconAnchor: [12.5, 41],
+                    popupAnchor: [0, -41]
+                });
+                
+                const marker = L.marker([gw.location.latitude, gw.location.longitude], {
+                    icon: gatewayIcon
                 });
                 
                 // Add popup with gateway info
@@ -315,14 +322,21 @@ function renderGateways() {
         const serverDevices = devices[serverName] || [];
         serverDevices.forEach(dev => {
             if (dev.location && dev.location.latitude && dev.location.longitude) {
-                // Create blue circle marker for devices
-                const marker = L.circleMarker([dev.location.latitude, dev.location.longitude], {
-                    radius: 10,
-                    fillColor: 'blue',
-                    color: '#fff',
-                    weight: 2,
-                    opacity: 1,
-                    fillOpacity: 0.8
+                // Create blue icon for devices
+                const deviceIcon = L.divIcon({
+                    html: `<svg width="25" height="41" viewBox="0 0 25 41" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M12.5 0C5.596 0 0 5.596 0 12.5c0 9.375 12.5 28.5 12.5 28.5S25 21.875 25 12.5C25 5.596 19.404 0 12.5 0z" 
+                              fill="#3b82f6" stroke="#fff" stroke-width="2"/>
+                        <circle cx="12.5" cy="12.5" r="5" fill="#fff"/>
+                    </svg>`,
+                    className: 'custom-marker',
+                    iconSize: [25, 41],
+                    iconAnchor: [12.5, 41],
+                    popupAnchor: [0, -41]
+                });
+                
+                const marker = L.marker([dev.location.latitude, dev.location.longitude], {
+                    icon: deviceIcon
                 });
                 
                 // Add popup with device info
@@ -378,31 +392,44 @@ function toggleDevices(name) {
 // Modal functions
 function showAddServerModal() {
     const modal = document.getElementById('modal');
+    const modalContent = modal.querySelector('.modal-content');
     const modalTitle = modal.querySelector('.modal-header h2');
     const modalBody = modal.querySelector('.modal-body');
+    
+    // Add narrow class for server modal
+    modalContent.classList.add('narrow');
     
     // Clear the modal body first to ensure fresh content
     modalBody.innerHTML = '';
     modalTitle.textContent = 'Add Network Server';
     
     modalBody.innerHTML = `
-        <label>Network Server Type</label>
-        <select id="server-type" onchange="updateServerTypeFields()">
-            <option value="generic">Generic</option>
-            <option value="loriot">LORIOT</option>
-            <option value="chirpstack">ChirpStack</option>
-            <option value="ttn">The Things Network (TTN)</option>
-        </select>
+        <div style="flex: 1;">
+            <label>Network Server Type</label>
+            <select id="server-type" onchange="updateServerTypeFields()">
+                <option value="generic">Generic</option>
+                <option value="loriot">LORIOT</option>
+                <option value="chirpstack">ChirpStack</option>
+                <option value="ttn">The Things Network (TTN)</option>
+            </select>
 
-        <label>Server Name</label>
-        <input type="text" id="server-name" placeholder="my-server">
-        
-        <div id="server-type-fields"></div>
-        
-        <div class="modal-actions">
-            <button onclick="closeModal()" class="btn btn-secondary">Cancel</button>
-            <button onclick="createServer()" class="btn btn-primary">Create</button>
+            <label>Server Name</label>
+            <input type="text" id="server-name" placeholder="my-server">
+            
+            <div id="server-type-fields"></div>
         </div>
+    `;
+    
+    // Add modal actions after the body
+    let actionsDiv = modalContent.querySelector('.modal-actions');
+    if (!actionsDiv) {
+        actionsDiv = document.createElement('div');
+        actionsDiv.className = 'modal-actions';
+        modalContent.appendChild(actionsDiv);
+    }
+    actionsDiv.innerHTML = `
+        <button onclick="closeModal()" class="btn btn-secondary">Cancel</button>
+        <button onclick="createServer()" class="btn btn-primary">Create</button>
     `;
 
     modal.classList.add('show');
@@ -445,6 +472,13 @@ function updateServerTypeFields() {
 }
 
 function closeModal() {
+    // Clean up modal map if it exists
+    if (modalMap) {
+        modalMap.remove();
+        modalMap = null;
+        modalMarker = null;
+    }
+    
     document.getElementById('modal').classList.remove('show');
 }
 
@@ -566,59 +600,180 @@ async function sendUplink(serverName, eui) {
     }
 }
 
+// Modal map functions
+let modalMap = null;
+let modalMarker = null;
+
+function initModalMap(type) {
+    // Clean up existing map if any
+    if (modalMap) {
+        modalMap.remove();
+        modalMap = null;
+        modalMarker = null;
+    }
+    
+    // Initialize new map
+    const mapElement = document.getElementById('modal-map');
+    if (!mapElement) return;
+    
+    // Default center (Chieti Scalo)
+    modalMap = L.map('modal-map').setView([42.3511, 14.1674], 13);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors'
+    }).addTo(modalMap);
+    
+    // Add click handler to set location
+    modalMap.on('click', (e) => {
+        const lat = e.latlng.lat;
+        const lon = e.latlng.lng;
+        
+        // Update hidden fields
+        document.getElementById(`${type}-lat`).value = lat;
+        document.getElementById(`${type}-lon`).value = lon;
+        
+        // Update coordinates display
+        document.getElementById(`${type}-location-coords`).textContent = 
+            `Latitude: ${lat.toFixed(6)}, Longitude: ${lon.toFixed(6)}`;
+        
+        // Remove existing marker if any
+        if (modalMarker) {
+            modalMap.removeLayer(modalMarker);
+        }
+        
+        // Add marker at clicked location
+        const color = type === 'gateway' ? '#ef4444' : '#3b82f6';
+        const icon = L.divIcon({
+            html: `<svg width="25" height="41" viewBox="0 0 25 41" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12.5 0C5.596 0 0 5.596 0 12.5c0 9.375 12.5 28.5 12.5 28.5S25 21.875 25 12.5C25 5.596 19.404 0 12.5 0z" 
+                      fill="${color}" stroke="#fff" stroke-width="2"/>
+                <circle cx="12.5" cy="12.5" r="5" fill="#fff"/>
+            </svg>`,
+            className: 'custom-marker',
+            iconSize: [25, 41],
+            iconAnchor: [12.5, 41],
+            popupAnchor: [0, -41]
+        });
+        
+        modalMarker = L.marker([lat, lon], { icon: icon }).addTo(modalMap);
+    });
+    
+    // Force map to recalculate size after modal animation
+    setTimeout(() => {
+        modalMap.invalidateSize();
+    }, 200);
+}
+
 // Modal functions for adding gateway and device
 function showAddGatewayModal(serverName) {
     console.log('showAddGatewayModal called with serverName:', serverName);
     const modal = document.getElementById('modal');
+    const modalContent = modal.querySelector('.modal-content');
     const modalTitle = modal.querySelector('.modal-header h2');
     const modalBody = modal.querySelector('.modal-body');
+    
+    // Remove narrow class for gateway modal
+    modalContent.classList.remove('narrow');
     
     // Clear the modal body first to ensure fresh content
     modalBody.innerHTML = '';
     modalTitle.textContent = 'Add Gateway';
     
     modalBody.innerHTML = `
-        <label>Gateway EUI (16 hex characters)</label>
-        <input type="text" id="gateway-eui" placeholder="AABBCCDDEEFF0011" maxlength="16">
-        <label>Discovery URI</label>
-        <input type="text" id="discovery-uri" placeholder="ws://localhost:3001" onkeypress="if(event.key==='Enter')createGateway('${serverName}')">
-        <div class="modal-actions">
-            <button onclick="closeModal()" class="btn btn-secondary">Cancel</button>
-            <button onclick="createGateway('${serverName}')" class="btn btn-primary">Create</button>
+        <div class="modal-fields">
+            <label>Gateway EUI (16 hex characters)</label>
+            <input type="text" id="gateway-eui" placeholder="AABBCCDDEEFF0011" maxlength="16">
+            <label>Discovery URI</label>
+            <input type="text" id="discovery-uri" placeholder="ws://localhost:3001">
+            <label>Headers (Optional)</label>
+            <input type="text" id="gateway-headers" placeholder='{"Authorization":"Bearer NLSXS.EKGKHAAF54UMUDXJ733LCIOQ7QLQXIUGWHLPQ7A.6DNCSB32SJ4DHRINMKGQLOMP2HPK63NLRMPPTV2XFCROKI3GDVZZ"}' onkeypress="if(event.key==='Enter')createGateway('${serverName}')">
         </div>
+        
+        <div class="modal-map-section">
+            <div class="modal-map-container">
+                <div class="modal-map-header">
+                    <label>Location (Optional)</label>
+                </div>
+                <div id="modal-map"></div>
+                <div class="modal-map-info">Click on map to set location</div>
+                <div class="modal-location-coords" id="gateway-location-coords">No location set</div>
+                <input type="hidden" id="gateway-lat">
+                <input type="hidden" id="gateway-lon">
+            </div>
+        </div>
+    `;
+    
+    // Add modal actions after the body
+    let actionsDiv = modalContent.querySelector('.modal-actions');
+    if (!actionsDiv) {
+        actionsDiv = document.createElement('div');
+        actionsDiv.className = 'modal-actions';
+        modalContent.appendChild(actionsDiv);
+    }
+    actionsDiv.innerHTML = `
+        <button onclick="closeModal()" class="btn btn-secondary">Cancel</button>
+        <button onclick="createGateway('${serverName}')" class="btn btn-primary">Create</button>
     `;
     
     console.log('Gateway modal title:', modalTitle.textContent);
     
     modal.classList.add('show');
+    
+    // Initialize map after modal is shown
     setTimeout(() => {
+        initModalMap('gateway');
         document.getElementById('gateway-eui')?.focus();
-    }, 0);
+    }, 100);
 }
 
 function showAddDeviceModal(serverName) {
     const modal = document.getElementById('modal');
+    const modalContent = modal.querySelector('.modal-content');
     const modalTitle = modal.querySelector('.modal-header h2');
     const modalBody = modal.querySelector('.modal-body');
+    
+    // Remove narrow class for device modal
+    modalContent.classList.remove('narrow');
     
     // Clear the modal body first to ensure fresh content
     modalBody.innerHTML = '';
     modalTitle.textContent = 'Add Device';
     
     modalBody.innerHTML = `
-        <label>Activation Mode</label>
-        <select id="device-type" onchange="updateDeviceFields('${serverName}')">
-            <option value="otaa">OTAA</option>
-            <option value="otaa-activated">OTAA (activated)</option>
-            <option value="abp">ABP</option>
-        </select>
-        
-        <div id="device-fields"></div>
-        
-        <div class="modal-actions">
-            <button onclick="closeModal()" class="btn btn-secondary">Cancel</button>
-            <button onclick="createDevice('${serverName}')" class="btn btn-primary">Create</button>
+        <div class="modal-fields">
+            <label>Activation Mode</label>
+            <select id="device-type" onchange="updateDeviceFields('${serverName}')">
+                <option value="otaa">OTAA</option>
+                <option value="otaa-activated">OTAA (activated)</option>
+                <option value="abp">ABP</option>
+            </select>
+            
+            <div id="device-fields"></div>
         </div>
+        
+        <div class="modal-map-section">
+            <div class="modal-map-container">
+                <div class="modal-map-header">
+                    <label>Location (Optional)</label>
+                </div>
+                <div id="modal-map"></div>
+                <div class="modal-map-info">Click on map to set location</div>
+                <div class="modal-location-coords" id="device-location-coords">No location set</div>
+                <input type="hidden" id="device-lat">
+                <input type="hidden" id="device-lon">
+            </div>
+        </div>
+    `;
+    
+    // Add modal actions after the body
+    let actionsDiv = modalContent.querySelector('.modal-actions');
+    if (!actionsDiv) {
+        actionsDiv = document.createElement('div');
+        actionsDiv.className = 'modal-actions';
+        modalContent.appendChild(actionsDiv);
+    }
+    actionsDiv.innerHTML = `
+        <button onclick="closeModal()" class="btn btn-secondary">Cancel</button>
+        <button onclick="createDevice('${serverName}')" class="btn btn-primary">Create</button>
     `;
     
     modal.classList.add('show');
@@ -626,9 +781,11 @@ function showAddDeviceModal(serverName) {
     // Initialize with OTAA fields
     updateDeviceFields(serverName);
     
+    // Initialize map after modal is shown
     setTimeout(() => {
+        initModalMap('device');
         document.getElementById('device-eui')?.focus();
-    }, 0);
+    }, 100);
 }
 
 function updateDeviceFields(serverName) {
@@ -695,16 +852,37 @@ function updateDeviceFields(serverName) {
 async function createGateway(serverName) {
     const eui = document.getElementById('gateway-eui').value.trim();
     const discoveryUri = document.getElementById('discovery-uri').value.trim();
+    const headersStr = document.getElementById('gateway-headers').value.trim();
+    const lat = document.getElementById('gateway-lat').value;
+    const lon = document.getElementById('gateway-lon').value;
     
     if (!eui || !discoveryUri) {
-        alert('Please fill in all fields');
+        alert('Please fill in all required fields');
         return;
+    }
+    
+    const body = { eui, discoveryUri };
+    
+    // Parse and add headers if provided
+    if (headersStr) {
+        try {
+            body.headers = JSON.parse(headersStr);
+        } catch (e) {
+            alert('Invalid JSON format for headers');
+            return;
+        }
+    }
+    
+    // Add location if set
+    if (lat && lon) {
+        body.latitude = parseFloat(lat);
+        body.longitude = parseFloat(lon);
     }
     
     try {
         await fetchAPI(`/network-servers/${serverName}/gateways`, {
             method: 'POST',
-            body: JSON.stringify({ eui, discoveryUri })
+            body: JSON.stringify(body)
         });
         closeModal();
         await refreshData();
@@ -785,6 +963,14 @@ async function createDevice(serverName) {
             fcntup,
             fcntdn
         };
+    }
+    
+    // Add location if set
+    const lat = document.getElementById('device-lat').value;
+    const lon = document.getElementById('device-lon').value;
+    if (lat && lon) {
+        body.latitude = parseFloat(lat);
+        body.longitude = parseFloat(lon);
     }
     
     try {

@@ -332,8 +332,12 @@
             background-color: #2a2a2a;
             border-radius: 8px;
             width: 90%;
-            max-width: 500px;
+            max-width: 800px;
             box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3);
+        }
+
+        .modal-content.narrow {
+            max-width: 500px;
         }
 
         .modal-header {
@@ -367,6 +371,19 @@
 
         .modal-body {
             padding: 20px;
+            display: flex;
+            gap: 20px;
+        }
+
+        .modal-fields {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .modal-map-section {
+            flex: 0 0 300px;
+            display: flex;
+            flex-direction: column;
         }
 
         .modal-body label {
@@ -399,10 +416,55 @@
             cursor: pointer;
         }
 
+        .modal-map-container {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+
+        .modal-map-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .modal-map-header label {
+            margin-bottom: 0;
+        }
+
+        .modal-map-info {
+            font-size: 12px;
+            color: #888;
+        }
+
+        #modal-map {
+            flex: 1;
+            min-height: 300px;
+            width: 100%;
+            border-radius: 4px;
+            border: 1px solid #444;
+            margin-bottom: 10px;
+        }
+
+        .modal-location-coords {
+            font-size: 12px;
+            color: #888;
+            font-family: 'Courier New', monospace;
+        }
+
+        .custom-marker {
+            background: none;
+            border: none;
+        }
+
         .modal-actions {
             display: flex;
             gap: 10px;
             justify-content: flex-end;
+            padding: 20px;
+            border-top: 1px solid #333;
+            margin-top: 0;
         }
 
         .modal-actions .btn {

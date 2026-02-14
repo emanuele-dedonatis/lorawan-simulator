@@ -45,8 +45,11 @@ func postGateway(c *gin.Context) {
 	ns := c.MustGet("networkServer").(*networkserver.NetworkServer)
 
 	var json struct {
-		EUI          string `json:"eui" binding:"required"`
-		DiscoveryURI string `json:"discoveryUri" binding:"required"`
+		EUI          string            `json:"eui" binding:"required"`
+		DiscoveryURI string            `json:"discoveryUri" binding:"required"`
+		Headers      map[string]string `json:"headers"`
+		Latitude     *float64          `json:"latitude"`
+		Longitude    *float64          `json:"longitude"`
 	}
 
 	if err := c.Bind(&json); err != nil {
@@ -61,7 +64,27 @@ func postGateway(c *gin.Context) {
 		return
 	}
 
-	gw, err := ns.AddGateway(eui, json.DiscoveryURI)
+	// Convert headers map to http.Header if provided
+	var headers http.Header
+	if len(json.Headers) > 0 {
+		headers = make(http.Header)
+		for k, v := range json.Headers {
+			headers.Set(k, v)
+		}
+	}
+
+	// Prepare location if provided
+	var location *gateway.Location
+	if json.Latitude != nil && json.Longitude != nil {
+		location = &gateway.Location{
+			Latitude:  *json.Latitude,
+			Longitude: *json.Longitude,
+		}
+	}
+
+	// Create gateway with optional location and headers
+	gw, err := ns.AddGateway(eui, json.DiscoveryURI, location, headers)
+
 	if err != nil {
 		c.IndentedJSON(http.StatusConflict, gin.H{"message": err.Error()})
 		return

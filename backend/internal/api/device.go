@@ -45,10 +45,12 @@ func postDevice(c *gin.Context) {
 	ns := c.MustGet("networkServer").(*networkserver.NetworkServer)
 
 	var json struct {
-		DevEui   string `json:"deveui" binding:"required"`
-		JoinEUI  string `json:"joineui" binding:"required"`
-		AppKey   string `json:"appkey" binding:"required"`
-		DevNonce uint16 `json:"devnonce"`
+		DevEui    string   `json:"deveui" binding:"required"`
+		JoinEUI   string   `json:"joineui" binding:"required"`
+		AppKey    string   `json:"appkey" binding:"required"`
+		DevNonce  uint16   `json:"devnonce"`
+		Latitude  *float64 `json:"latitude"`
+		Longitude *float64 `json:"longitude"`
 		// Optional fields for ABP and OTAA (activated)
 		DevAddr  string `json:"devaddr"`
 		AppSKey  string `json:"appskey"`
@@ -110,7 +112,16 @@ func postDevice(c *gin.Context) {
 		}
 	}
 
-	dev, err := ns.AddDevice(deveui, joineui, appkey, lorawan.DevNonce(json.DevNonce), devaddr, appskey, nwkskey, json.FCntUp, json.FCntDown)
+	// Prepare location if provided
+	var location *device.Location
+	if json.Latitude != nil && json.Longitude != nil {
+		location = &device.Location{
+			Latitude:  *json.Latitude,
+			Longitude: *json.Longitude,
+		}
+	}
+
+	dev, err := ns.AddDevice(deveui, joineui, appkey, lorawan.DevNonce(json.DevNonce), devaddr, appskey, nwkskey, json.FCntUp, json.FCntDown, location)
 	if err != nil {
 		c.IndentedJSON(http.StatusConflict, gin.H{"message": err.Error()})
 		return
