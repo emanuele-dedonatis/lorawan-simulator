@@ -70,10 +70,31 @@ func (c *ChirpStackClient) ListGateways() ([]gateway.GatewayInfo, error) {
 			}
 
 			log.Printf("[CHIRPSTACK] found gateway %s", eui)
-			allGateways = append(allGateways, gateway.GatewayInfo{
+			
+			gwInfo := gateway.GatewayInfo{
 				EUI:          eui,
 				DiscoveryURI: c.buildDiscoveryURI(),
-			})
+			}
+
+			// Get gateway details to retrieve location
+			getReq := &api.GetGatewayRequest{
+				GatewayId: gw.GatewayId,
+			}
+			getResp, err := client.Get(ctx, getReq)
+			if err != nil {
+				log.Printf("[CHIRPSTACK] failed to get gateway details for %s: %v", gw.GatewayId, err)
+			} else if getResp.Gateway != nil && getResp.Gateway.Location != nil {
+				// ChirpStack stores location in the Gateway object
+				if getResp.Gateway.Location.Latitude != 0 || getResp.Gateway.Location.Longitude != 0 {
+					gwInfo.Location = &gateway.Location{
+						Latitude:  getResp.Gateway.Location.Latitude,
+						Longitude: getResp.Gateway.Location.Longitude,
+					}
+					log.Printf("[CHIRPSTACK] gateway %s has location: lat=%f, lon=%f", eui, getResp.Gateway.Location.Latitude, getResp.Gateway.Location.Longitude)
+				}
+			}
+
+			allGateways = append(allGateways, gwInfo)
 		}
 
 		// Check if we've retrieved all gateways
@@ -211,13 +232,19 @@ func (c *ChirpStackClient) ListDevices() ([]device.DeviceInfo, error) {
 							}
 
 							log.Printf("[CHIRPSTACK] found device %s", devEUI)
-							allDevices = append(allDevices, device.DeviceInfo{
+							
+							deviceInfo := device.DeviceInfo{
 								DevEUI:  devEUI,
 								JoinEUI: joinEUI,
 								AppKey:  appKey,
 								// DevNonce, DevAddr, session keys, and frame counters are not available from ChirpStack API
 								// Device must join everytime
-							})
+							}
+
+							// Note: ChirpStack v4 API doesn't provide device location in the standard API
+							// Location would need to be retrieved from device tags/metadata if configured
+
+							allDevices = append(allDevices, deviceInfo)
 						}
 
 						// Check if we've retrieved all devices for this application
