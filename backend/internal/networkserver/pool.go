@@ -3,6 +3,7 @@ package networkserver
 import (
 	"errors"
 	"log"
+	"sort"
 	"sync"
 
 	"github.com/brocaar/lorawan"
@@ -99,6 +100,12 @@ func (p *Pool) List() []*NetworkServer {
 	for _, ns := range p.ns {
 		servers = append(servers, ns)
 	}
+	
+	// Sort alphabetically by name
+	sort.Slice(servers, func(i, j int) bool {
+		return servers[i].name < servers[j].name
+	})
+	
 	return servers
 }
 
