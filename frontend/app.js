@@ -178,6 +178,54 @@ function renderGatewayList(serverName, gateways) {
     }).join('');
 }
 
+// Check if device has session keys (all must be non-zero)
+function hasSessionKeys(dev) {
+    // Helper to check if a value is zero (works for both arrays and hex strings)
+    const isZero = (val) => {
+        if (!val) return true;
+        
+        // If it's an array
+        if (Array.isArray(val)) {
+            return val.every(byte => byte === 0);
+        }
+        
+        // If it's a string (hex)
+        if (typeof val === 'string') {
+            // Remove any whitespace and check if it's all zeros
+            const cleaned = val.replace(/\s/g, '');
+            return cleaned === '' || /^0+$/.test(cleaned);
+        }
+        
+        return true;
+    };
+    
+    return !isZero(dev.devaddr) && 
+           !isZero(dev.appskey) && 
+           !isZero(dev.nwkskey);
+}
+
+// Check if device can join (appkey and joineui must be non-zero)
+function canJoin(dev) {
+    const isZero = (val) => {
+        if (!val) return true;
+        
+        // If it's an array
+        if (Array.isArray(val)) {
+            return val.every(byte => byte === 0);
+        }
+        
+        // If it's a string (hex)
+        if (typeof val === 'string') {
+            const cleaned = val.replace(/\s/g, '');
+            return cleaned === '' || /^0+$/.test(cleaned);
+        }
+        
+        return true;
+    };
+    
+    return !isZero(dev.appkey) && !isZero(dev.joineui);
+}
+
 // Render device list
 function renderDeviceList(serverName, devices) {
     if (devices.length === 0) {
@@ -185,6 +233,9 @@ function renderDeviceList(serverName, devices) {
     }
     
     return devices.map(dev => {
+        const canUplink = hasSessionKeys(dev);
+        const canDoJoin = canJoin(dev);
+        
         return `
             <div class="device-item">
                 <div class="device-info">
@@ -196,10 +247,14 @@ function renderDeviceList(serverName, devices) {
                     <button class="icon-button" onclick="deleteDevice('${serverName}', '${dev.deveui}')" title="Delete Device">×</button>
                 </div>
                 <div class="button-group">
-                    <button class="btn btn-primary" onclick="sendJoin('${serverName}', '${dev.deveui}')">
+                    <button class="btn btn-primary" 
+                            onclick="sendJoin('${serverName}', '${dev.deveui}')"
+                            ${!canDoJoin ? 'disabled title="ABP device"' : ''}>
                         Join
                     </button>
-                    <button class="btn btn-primary" onclick="sendUplink('${serverName}', '${dev.deveui}')">
+                    <button class="btn btn-primary" 
+                            onclick="sendUplink('${serverName}', '${dev.deveui}')"
+                            ${!canUplink ? 'disabled title="Device must join first"' : ''}>
                         Uplink
                     </button>
                 </div>
