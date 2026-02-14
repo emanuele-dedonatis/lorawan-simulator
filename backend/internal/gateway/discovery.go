@@ -21,9 +21,11 @@ func (g *Gateway) lnsDiscovery() (string, error) {
 	// Connecting
 	g.mu.Lock()
 	g.discoveryState = StateConnecting
+	headers := g.headers
 	g.mu.Unlock()
 
-	conn, _, connErr := websocket.DefaultDialer.Dial(g.discoveryURI+"/router-info", nil)
+	dialer := websocket.DefaultDialer
+	conn, _, connErr := dialer.Dial(g.discoveryURI+"/router-info", headers)
 
 	if connErr != nil {
 		// Connection error

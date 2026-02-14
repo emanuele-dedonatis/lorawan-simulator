@@ -17,7 +17,7 @@ import (
 // Helper function to create a gateway with downlink channel for testing
 func newTestGateway(eui lorawan.EUI64, discoveryURI string) *Gateway {
 	downlinkCh := make(chan lorawan.PHYPayload, 10)
-	return New(downlinkCh, eui, discoveryURI)
+	return New(downlinkCh, eui, discoveryURI, nil)
 }
 
 // Mock WebSocket server that simulates LNS data endpoint

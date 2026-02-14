@@ -3,6 +3,7 @@ package networkserver
 import (
 	"errors"
 	"log"
+	"net/http"
 	"sync"
 
 	"github.com/emanuele-dedonatis/lorawan-simulator/internal/device"
@@ -61,7 +62,7 @@ func (ns *NetworkServer) GetInfo() NetworkServerInfo {
 
 // Gateway management methods
 
-func (ns *NetworkServer) AddGateway(EUI lorawan.EUI64, discoveryURI string) (*gateway.Gateway, error) {
+func (ns *NetworkServer) AddGateway(EUI lorawan.EUI64, discoveryURI string, headers ...http.Header) (*gateway.Gateway, error) {
 	ns.mu.Lock()
 	defer ns.mu.Unlock()
 
@@ -69,7 +70,13 @@ func (ns *NetworkServer) AddGateway(EUI lorawan.EUI64, discoveryURI string) (*ga
 		return nil, errors.New("gateway already exists")
 	}
 
-	ns.gateways[EUI] = gateway.New(ns.broadcastDownlink, EUI, discoveryURI)
+	// Create gateway with optional headers (nil if not provided)
+	var h http.Header
+	if len(headers) > 0 {
+		h = headers[0]
+	}
+
+	ns.gateways[EUI] = gateway.New(ns.broadcastDownlink, EUI, discoveryURI, h)
 	return ns.gateways[EUI], nil
 }
 
@@ -312,7 +319,7 @@ func (ns *NetworkServer) Sync() error {
 
 	// Add new gateways
 	for _, gw := range gwsToAdd {
-		_, err := ns.AddGateway(gw.EUI, gw.DiscoveryURI)
+		_, err := ns.AddGateway(gw.EUI, gw.DiscoveryURI, gw.Headers)
 		if err != nil {
 			log.Printf("[%s] unable to add gateway %s: %v", ns.name, gw.EUI, err)
 		}

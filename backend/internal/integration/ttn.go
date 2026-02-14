@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"log"
+	"net/http"
 	"net/url"
 	"strings"
 
@@ -184,9 +185,14 @@ func (c *TTNClient) ListGateways() ([]gateway.GatewayInfo, error) {
 			var eui lorawan.EUI64
 			copy(eui[:], gw.Ids.Eui)
 
+			// Create headers with Authorization bearer token
+			headers := http.Header{}
+			headers.Add("Authorization", "Bearer "+c.apiKey)
+
 			allGateways = append(allGateways, gateway.GatewayInfo{
 				EUI:          eui,
 				DiscoveryURI: discoveryUri,
+				Headers:      headers,
 			})
 		}
 

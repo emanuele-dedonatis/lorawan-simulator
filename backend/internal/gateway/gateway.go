@@ -2,6 +2,7 @@ package gateway
 
 import (
 	"errors"
+	"net/http"
 	"sync"
 
 	"github.com/brocaar/lorawan"
@@ -17,25 +18,28 @@ type Gateway struct {
 	dataWs            *websocket.Conn
 	dataDone          chan struct{}
 	dataSendCh        chan string
+	headers           http.Header
 	mu                sync.RWMutex
 	broadcastDownlink chan<- lorawan.PHYPayload
 }
 
 type GatewayInfo struct {
-	EUI            lorawan.EUI64 `json:"eui"`
-	DiscoveryURI   string        `json:"discoveryUri"`
-	DiscoveryState string        `json:"discoveryState"`
-	DataURI        string        `json:"dataUri"`
-	DataState      string        `json:"dataState"`
+	EUI            lorawan.EUI64   `json:"eui"`
+	DiscoveryURI   string          `json:"discoveryUri"`
+	DiscoveryState string          `json:"discoveryState"`
+	DataURI        string          `json:"dataUri"`
+	DataState      string          `json:"dataState"`
+	Headers        http.Header     `json:"headers,omitempty"`
 }
 
-func New(broadcastDownlink chan<- lorawan.PHYPayload, EUI lorawan.EUI64, discoveryURI string) *Gateway {
+func New(broadcastDownlink chan<- lorawan.PHYPayload, EUI lorawan.EUI64, discoveryURI string, headers http.Header) *Gateway {
 	return &Gateway{
 		eui:               EUI,
 		discoveryURI:      discoveryURI,
 		discoveryState:    StateDisconnected,
 		dataURI:           "",
 		dataState:         StateDisconnected,
+		headers:           headers,
 		broadcastDownlink: broadcastDownlink,
 	}
 }
@@ -50,6 +54,7 @@ func (g *Gateway) GetInfo() GatewayInfo {
 		DiscoveryState: g.discoveryState.String(),
 		DataURI:        g.dataURI,
 		DataState:      g.dataState.String(),
+		Headers:        g.headers,
 	}
 }
 

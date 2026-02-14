@@ -16,10 +16,12 @@ func (g *Gateway) lnsDataConnect() error {
 	// Connecting
 	g.mu.Lock()
 	g.dataState = StateConnecting
+	headers := g.headers
 	g.mu.Unlock()
 	log.Printf("[%s] data connecting", g.eui)
 
-	conn, _, connErr := websocket.DefaultDialer.Dial(g.dataURI, nil)
+	dialer := websocket.DefaultDialer
+	conn, _, connErr := dialer.Dial(g.dataURI, headers)
 
 	if connErr != nil {
 		// Connection error
@@ -44,7 +46,7 @@ func (g *Gateway) lnsDataConnect() error {
 	go g.lnsDataWriteLoop()
 
 	// Send version message to receive router_config
-	versionMsg := `{"msgtype":"version","station":"lorawan-simulator","protocol":2}`
+	versionMsg := `{"msgtype":"version","station":"lorawan-simulator","package":"github.com/emanuele-dedonatis/lorawan-simulator","protocol":2}`
 	g.send(versionMsg)
 
 	// TODO: create timeout for router_config
