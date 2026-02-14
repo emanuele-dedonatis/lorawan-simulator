@@ -36,6 +36,52 @@ The synchronization:
 - Pulls location data for map visualization
 - Keeps your simulation environment in sync with your actual network
 
+## Network Server Creation
+
+The simulator supports multiple LoRaWAN® Network Server platforms. You can easily add network servers through the web interface:
+
+### Generic Network Server
+
+![Generic Network Server Creation](docs/add-network-server-generic.png)
+
+For testing or custom integrations, you can add a generic network server with just a name. This allows manual gateway and device configuration without automatic synchronization.
+
+### LORIOT
+
+![LORIOT Network Server Creation](docs/add-network-server-loriot.png)
+
+**Required fields:**
+- URL (LORIOT server address)
+- Authorization Header (`Session <token>` or `Bearer <api-key>`)
+
+### ChirpStack
+
+![ChirpStack Network Server Creation](docs/add-network-server-chirpstack.png)
+
+**Required fields:**
+- URL (ChirpStack server address)
+- API Key (ChirpStack API token)
+
+### The Things Network (TTN)
+
+![TTN Network Server Creation](docs/add-network-server-ttn.png)
+
+**Required fields:**
+- URL (TTN server address)
+- API Key (TTN API token)
+
+## Manual Gateway Creation
+
+You can manually add gateways for testing purposes:
+
+![Gateway Creation](docs/add-gateway.png)
+
+**Required fields:**
+- Gateway EUI
+- Discovery URI (WebSocket endpoint for LoRa Basics™ Station protocol)
+
+Once added, gateways can be connected/disconnected with a single click from the dashboard.
+
 ## Manual Device Creation
 
 If you prefer to create devices manually or need to add test devices that don't exist on your network server, the simulator provides an easy-to-use interface supporting three different activation modes:
@@ -77,18 +123,6 @@ ABP devices with hardcoded session keys:
 - App Session Key
 - Network Session Key
 - FCnt Up, FCnt Down (optional, defaults to 0)
-
-## Manual Gateway Creation
-
-Similarly to devices, you can manually add gateways for testing purposes:
-
-![Gateway Creation](docs/add-gateway.png)
-
-**Required fields:**
-- Gateway EUI
-- Discovery URI (WebSocket endpoint for LoRa Basics™ Station protocol)
-
-Once added, gateways can be connected/disconnected with a single click from the dashboard.
 
 ### Coming Soon
 
